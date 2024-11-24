@@ -1,0 +1,4197 @@
+.template 0
+
+#############################################################################
+# Generic helpers - Files
+#
+#############################################################################
+
+function forceCopyFile(sourceFilePath, destinationFilePath)
+    if file.exists(my.destinationFilePath)
+        file.delete(my.destinationFilePath)
+    endif
+    if (file.copy(my.sourceFilePath, my.destinationFilePath, "b", my.error) = -1)
+        echo "Failed to copy file $(my.sourceFilePath) at $(my.destinationFilePath): $(my.error)" 
+    endif
+endfunction forceCopyFile
+
+
+function forceCopyDir(sourceDirPath, destinationDirPath)
+    my.cleanSourceDirPath = directory.resolve(my.sourceDirPath)
+    my.cleanDestinationDirPath = directory.resolve(my.destinationDirPath)
+    my.sourceDir = directory.open (my.cleanSourceDirPath, my.error_text) ? 
+    if defined (my.sourceDir)
+        directory.create("$(my.cleanDestinationDirPath)")
+        for my.sourceDir.file as f
+            forceCopyFile("$(f.path)$(f.name)", "$(my.cleanDestinationDirPath)$(f.name)")
+        endfor
+        for my.sourceDir.directory as d
+            forceCopyDir("$(d.path)$(d.name)", "$(my.cleanDestinationDirPath)$(d.name)")
+        endfor
+    else
+        echo "Failed to open directory $(my.cleanSourceDirPath): $(my.error_text)"
+    endif
+endfunction forceCopyDir
+
+
+function moveFile(sourceFilePath, destinationFilePath)
+    if file.exists(my.sourceFilePath)
+        if (file.copy(my.sourceFilePath, my.destinationFilePath, "b", my.error) = -1)
+            echo "Failed to copy file $(my.sourceFilePath) at $(my.destinationFilePath): $(my.error)" 
+        else
+            file.delete(my.sourceFilePath)
+        endif
+    endif
+endfunction moveFile
+
+
+function initDirectories()
+    directory.create("$(global.sketch2arinc661_appOrLibraryDir)")
+    directory.create("$(global.sketch2arinc661_componentsDir)")
+    directory.create("$(global.sketch2arinc661_appOrLibraryDir)/Resources")
+    directory.create("$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts")
+    directory.create("$(global.sketch2arinc661_appOrLibraryDir)/Resources/images")
+endfunction initDirectories
+
+
+function copyResourcesFiles()
+    # B612 fonts (VAPS XT format)
+    moveFile("$(global.sketch2arinc661_scriptsDir)/B612-Bold.vbfnt", "$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts/B612-Bold.vbfnt")
+    moveFile("$(global.sketch2arinc661_scriptsDir)/B612-BoldItalic.vbfnt", "$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts/B612-BoldItalic.vbfnt")
+    moveFile("$(global.sketch2arinc661_scriptsDir)/B612-Italic.vbfnt", "$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts/B612-Italic.vbfnt")
+    moveFile("$(global.sketch2arinc661_scriptsDir)/B612-Regular.vbfnt", "$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts/B612-Regular.vbfnt")
+endfunction copyResourcesFiles
+
+
+function fileNameWithoutExtension(name)
+    if regexp.match ("(.+)\\.[a-zA-Z]+$", my.name, nameWithoutExtension)
+        return nameWithoutExtension
+    else
+        return name
+    endif
+endfunction fileNameWithoutExtension
+
+
+function convertFontFileName(fileName)
+    # VAPS constraint: only vbfnt fonts are supported
+    if regexp.match ("(.+)\\.[a-zA-Z]+$", my.fileName, nameWithoutExtension)
+        return "$(nameWithoutExtension).vbfnt"
+    else
+        # No file extension
+        return "$(my.fileName).vbfnt"
+    endif
+endfunction convertFontFileName
+
+
+
+#############################################################################
+# Generic helpers - Misc.
+#
+#############################################################################
+
+function getIndent(level)
+    return " " * my.level * global.sketch2arinc661_tabWidth 
+endfunction getIndent
+
+
+function decimalToHex(value)
+    if (my.value = 0)
+        return "00"
+    else
+        my.result = ""
+        while (my.value > 0)
+            my.remainder = math.mod(my.value, 16)
+
+            if (my.remainder < 10)
+                my.result = "$(my.remainder)$(my.result)"
+            elsif (my.remainder = 10)
+                my.result = "A$(my.result)"
+            elsif (my.remainder = 11)
+                my.result = "B$(my.result)"
+            elsif (my.remainder = 12)
+                my.result = "C$(my.result)"
+            elsif (my.remainder = 13)
+                my.result = "D$(my.result)"
+            elsif (my.remainder = 14)
+                my.result = "E$(my.result)"
+            elsif (my.remainder = 15)
+                my.result = "F$(my.result)"
+            endif
+
+            my.value = math.floor(my.value/16)
+        endwhile
+
+        return my.result
+    endif
+endfunction decimalToHex
+
+
+function hash(value)
+    return decimalToHex(string.hash(my.value))
+endfunction hash
+
+
+function hexToInt(value)
+    my.code = conv.ord("$(my.value)")
+    if (my.value >= "0" & my.value <= "9")
+        return (my.code - 48)
+    elsif (my.value >= "A" & my.value <= "F")
+        return (my.code - 55)
+    else
+        return (my.code - 87)
+    endif
+endfunction hexToInt
+
+
+function twoDigitHexToInt(value)
+    return (hexToInt(string.substr(my.value, 0, 0)) * 16 + hexToInt(string.substr(my.value, 1, 1)))
+endfunction twoDigitHexToInt
+
+
+function hexArgbToRgba(value)
+    my.alpha = 0
+    my.red = 0
+    my.green = 0
+    my.blue = 0
+
+    if regexp.match("^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$", my.value, hexA, hexR, hexG, hexB)
+        my.alpha = twoDigitHexToInt(hexA)
+        my.red = twoDigitHexToInt(hexR)
+        my.green = twoDigitHexToInt(hexG)
+        my.blue = twoDigitHexToInt(hexB)
+    elsif regexp.match("^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$", my.value, hexR, hexG, hexB)
+        my.alpha = 255
+        my.red = twoDigitHexToInt(hexR)
+        my.green = twoDigitHexToInt(hexG)
+        my.blue = twoDigitHexToInt(hexB)
+    endif
+
+    if (my.alpha = 0)
+        my.alphaF = 0.0     # To avoid rounding issues
+    elsif (my.alpha = 255)
+        my.alphaF = 1.0     # To avoid rounding issues
+    else
+        my.alphaF = my.alpha/255.0
+    endif
+
+    return "rgba($(my.red), $(my.green), $(my.blue), $(my.alphaF))"
+endfunction hexArgbToRgba
+
+
+function lineCap(value)
+    if (defined (my.ivalue))
+        if (my.value = "Round")
+            return "round"    
+        elsif (my.item.lineEnd = "Projecting")
+            return "square"           
+        endif
+    endif
+
+    return "butt"
+endfunction lineCap
+
+
+function lineJoin(value)
+    if (defined (my.ivalue))
+        if (my.value = "Round")
+            return "round"    
+        elsif (my.item.lineEnd = "Bevel")
+            return "bevel"           
+        endif
+    endif
+
+    return "miter"
+endfunction lineJoin
+
+
+function hasFixedLeft(item)
+    return (defined(my.item.hasFixedLeft) & my.item.hasFixedLeft)
+endfunction hasFixedLeft
+
+
+function hasFixedRight(item)
+    return (defined(my.item.hasFixedRight) & my.item.hasFixedRight)
+endfunction hasFixedRight
+
+
+function hasFixedTop(item)
+    return (defined(my.item.hasFixedTop) & my.item.hasFixedTop)
+endfunction hasFixedTop
+
+
+function hasFixedBottom(item)
+    return (defined(my.item.hasFixedBottom) & my.item.hasFixedBottom)
+endfunction hasFixedBottom
+
+
+function isGroup(item)
+    return (my.item.type = "group")
+endfunction isGroup
+
+
+function isSymbolInstance(item)
+    return (defined(my.item.symbolMaster) & (string.length(my.item.symbolMaster) > 0) & !isImage(my.item))
+endfunction isSymbolInstance
+
+
+function isImage(item)
+    return (my.item.type = "image")
+endfunction isImage
+
+
+function isText(item)
+    return (my.item.type = "text")
+endfunction isText
+
+
+function isRectangle(item)
+    return (my.item.type = "rectangle")
+endfunction isRectangle
+
+
+function isOval(item)
+    return (my.item.type = "oval")
+endfunction isOval
+
+
+function isLine(item)
+    return (my.item.type = "line")
+endfunction isLine
+
+
+function overrideIsDefault(override)
+    return (defined(my.override.isDefault) & my.override.isDefault)
+endfunction overrideIsDefault
+
+
+function overrideIsEditable(override)
+    return (defined(my.override.editable) & my.override.editable)
+endfunction overrideIsEditable
+
+
+function isImageOverride(override)
+    return (my.override.property = "image")
+endfunction isImageOverride
+
+
+function isSymbolOverride(override)
+    return (my.override.property = "symbolID")
+endfunction isSymbolOverride
+
+
+function isTextStyleOverride(override)
+    return (my.override.property = "textStyle")
+endfunction isTextStyleOverride
+
+
+function isStringValueOverride(override)
+    return (my.override.property = "stringValue")
+endfunction isStringValueOverride
+
+
+function isLayerStyleOverride(override)
+    return (my.override.property = "layerStyle")
+endfunction isLayerStyleOverride
+
+
+function convertY(value)
+    # ARINC661 Part 2: the y-axis is pointing up
+    return (global.sketch2arinc661_currentParentHeight - my.value)
+endfunction convertY
+
+
+function convertFontSize(value)
+    # OLD version: convert point to DIP
+    #
+    # 1 pt = 25.4/72 mm =~ 0.353 mm
+    # 1 DIP is equivalent to a viewing angle of 0.015°. 
+    # This viewing angle is lower than the theoretical resolving power of the eye (1 arc minute). 
+    # This corresponds for example to a pixel of 210 μm viewed from a typical pilot eye to screen distance of 800 mm
+    #
+    # => 1 pt =~ 0.353/0.210 DIP =~ 1.68 DIP
+    #return math.floor(my.value/1.68 + 0.5)
+
+    # 2024/03/13: B612 fonts were converted using 96 DPI (Windows default) instead of 72 DPI (macos and Sketch default)
+    return math.floor(my.value * 72/96 + 0.5)
+endfunction convertFontSize
+
+
+function sharedTextStyleExists(appOrLibrary, styleId)
+    if (string.length(my.styleId) > 0) 
+        for my.appOrLibrary.sharedtextstyle
+            if sharedtextstyle.id = my.styleId           
+                return 1
+            endif
+        endfor
+    endif
+    return 0
+endfunction sharedTextStyleExists
+
+
+function getSharedTextStyle(appOrLibrary, styleId)
+    if (string.length(my.styleId) > 0) 
+        for my.appOrLibrary.sharedtextstyle
+            if sharedtextstyle.id = my.styleId           
+                return sharedtextstyle
+            endif
+        endfor
+    endif
+endfunction getSharedTextStyle
+
+
+function isSharedStyleOutOfSync(item)
+    return (defined(my.item.isSharedStyleOutOfSync) & my.item.isSharedStyleOutOfSync)
+endfunction isSharedStyleOutOfSync
+
+
+function isB612FontFamily(name)
+    return regexp.match ("^(?i)(|AI)B612", my.name)
+endfunction isB612FontFamily
+
+
+function useB612Font(item)
+    return (defined(my.item) & isB612FontFamily("$(my.item.fontFamily:Pascal)"))
+endfunction useB612Font
+
+
+function useB612FontFromItems(firstItem, secondItem)
+    if defined(my.firstItem.fontFamily)
+        return useB612Font(my.firstItem)
+    else
+        return useB612Font(my.secondItem)
+    endif
+endfunction useB612FontFromItems
+
+
+function isBold(item)
+    # Sketch: weight 7 => DemiBold
+    return (defined (my.item.fontWeight) & (my.item.fontWeight >= 7))
+endfunction isBold
+
+
+function isBoldFromItems(firstItem, secondItem)
+    if defined(my.firstItem.fontWeight)
+        return isBold(my.firstItem)
+    else
+        return isBold(my.secondItem)
+    endif
+endfunction isBoldFromItems
+
+
+function isItalic(item)
+    return (defined (my.item.fontStyle) & (my.item.fontStyle = "italic"))
+endfunction isItalic
+
+
+function isItalicFromItems(firstItem, secondItem)
+    if defined(my.firstItem.fontStyle)
+        return isItalic(my.firstItem)
+    else
+        return isItalic(my.secondItem)
+    endif
+endfunction isItalicFromItems
+
+
+function isUnderlined(item)
+    return defined(my.item.textUnderline)
+endfunction isUnderlined
+
+
+function isUnderlinedFromItems(firstItem, secondItem)
+    if isUnderlined(my.firstItem)
+        return 1
+    else
+        return isUnderlined(my.secondItem)
+    endif
+endfunction isUnderlinedFromItems
+
+
+function isStrikedthrough(item)
+    return defined(my.item.textStrikethrough)
+endfunction isStrikedthrough
+
+
+function isStrikedthroughFromItems(firstItem, secondItem)
+    if isStrikedthrough(my.firstItem)
+        return 1
+    else
+        return isStrikedthrough(my.secondItem)
+    endif
+endfunction isStrikedthroughFromItems
+
+
+function hasLineHeight(item)
+    return defined(my.item.lineHeight)
+endfunction hasLineHeight
+
+
+function hasLineHeightFromItems(firstItem, secondItem)
+    if defined(my.firstItem.lineHeight)
+        return 1
+    else
+        return hasLineHeight(my.secondItem)
+    endif
+endfunction hasLineHeightFromItems
+
+
+function getLineHeight(item)
+    return my.item.lineHeight
+endfunction getLineHeight
+
+
+function getLineHeightFromItems(firstItem, secondItem)
+    if defined(my.firstItem.lineHeight)
+        return my.firstItem.lineHeight
+    else
+        return my.secondItem.lineHeight
+    endif
+endfunction getLineHeightFromItems
+
+
+function getFontSize(item)
+    return my.item.fontSize
+endfunction getFontSize
+
+
+function getFontSizeFromItems(firstItem, secondItem)
+    if defined(my.firstItem.fontSize)
+        return my.firstItem.fontSize
+    else
+        return my.secondItem.fontSize
+    endif
+endfunction getFontSizeFromItems
+
+
+function hasTextColor(item)
+    return defined(my.item.textColor)
+endfunction hasTextColor
+
+
+function hasTextColorFromItems(firstItem, secondItem)
+    if defined(my.firstItem.textColor)
+        return 1
+    else
+        return hasTextColor(my.secondItem)
+    endif
+endfunction hasTextColorFromItems
+
+
+function getTextColor(item)
+    return my.item.textColor
+endfunction getTextColor
+
+
+function getTextColorFromItems(firstItem, secondItem)
+    if hasTextColor(my.firstItem)
+        return getTextColor(my.firstItem)
+    else
+        return getTextColor(my.secondItem)
+    endif
+endfunction getTextColorFromItemOrTextStyle
+
+
+function getFontFamilyResource(item)
+    if useB612Font(my.item)
+        #
+        # Special case: B612 fonts
+        # => <isBold> and <isItalic> are always false
+        #    we must use a different font family for each combination
+        #
+        my.isBold = isBold(my.item)
+        my.isItalic = isItalic(my.item)
+
+        if (my.isBold)
+            if (my.isItalic)
+                return "Resources.Fonts.AIB612BoldItalic"
+            else
+                return "Resources.Fonts.AIB612Bold"
+            endif
+        elsif (my.isItalic)
+            return "Resources.Fonts.AIB612talic"
+        else
+            return "Resources.Fonts.AIB612Regular"
+        endif
+    else
+        return "Resources.Fonts.$(my.item.fontFamily:Pascal)"
+    endif
+endfunction getFontFamilyResource
+
+
+function getFontFamilyResourceFromItems(firstItem, secondItem)
+    if useB612FontFromItems(my.firstItem, my.secondItem)
+        #
+        # Special case: B612 fonts
+        # => <isBold> and <isItalic> are always false
+        #    we must use a different font family for each combination
+        #
+        my.isBold = isBoldFromItems(my.firstItem, my.secondItem)
+        my.isItalic = isItalicFromItems(my.firstItem, my.secondItem)
+
+        if (my.isBold)
+            if (my.isItalic)
+                return "Resources.Fonts.AIB612BoldItalic"
+            else
+                return "Resources.Fonts.AIB612Bold"
+            endif
+        elsif (my.isItalic)
+            return "Resources.Fonts.AIB612talic"
+        else
+            return "Resources.Fonts.AIB612Regular"
+        endif
+    elsif defined(my.firstItem.fontFamily) 
+        return "Resources.Fonts.$(my.firstItem.fontFamily:Pascal)"
+    else
+        return "Resources.Fonts.$(my.secondItem.fontFamily:Pascal)"
+    endif
+endfunction getFontFamilyResourceFromItemOrTextStyle
+
+
+function getImageName(rawName)
+    # Remove file extension
+    my.nameWithoutExtension = fileNameWithoutExtension(my.rawName)
+    my.nameWithoutExtension = "$(my.nameWithoutExtension:c)"
+    # VAPS constraint ?: identifier can not start with an underscore
+    if regexp.match ("^_", my.nameWithoutExtension)
+        my.nameWithoutExtension = "i$(my.nameWithoutExtension)"
+    endif
+    
+    # VAPS constraint: total length must be 64 or smaller, i.e. the one of Resources.Images.xxxx
+    # Thus the maximum length of xxx is 47
+    if (string.length(my.nameWithoutExtension) > 47)
+        # hash value is located between 0 and 2147483647, i.e. its length is 1 to 10 characters
+        my.hash = hash(my.nameWithoutExtension)
+        my.separator = "_x"
+        my.availableLength = 47 - string.length(my.hash) - string.length(my.separator)
+        my.prefix = string.substr(my.nameWithoutExtension, 0, my.availableLength -1)
+        return "$(my.prefix)$(my.separator)$(my.hash)"
+    else
+        return my.nameWithoutExtension
+    endif
+endfunction getImageName
+
+
+function isValidComponentName(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # NB: VAPS adds an extra prefix 'vxtCls' and takes it into account when calculating the limit
+    # Thus, limist is 64 - 6 = 58
+    return (string.length(my.rawValue) <= 58)
+endfunction isValidComponentName
+
+
+function getComponentName(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # NB: VAPS adds an extra prefix 'vxtCls' and takes it into account when calculating the limit
+    # Thus, limist is 64 - 6 = 58
+    my.maxNameLength = 58
+    if (string.length(my.rawValue) > my.maxNameLength)
+        # hash value is located between 0 and 2147483647, i.e. its length is 1 to 10 characters
+        my.hash = hash(my.rawValue)
+        my.separator = "_x"
+        my.availableLength = my.maxNameLength - string.length(my.hash) - string.length(my.separator)
+        my.prefix = string.substr(my.rawValue, 0, my.availableLength - 1)
+        return "$(my.prefix)$(my.separator)$(my.hash)"
+    else
+        return my.rawValue
+    endif
+endfunction getComponentName
+
+
+function isValidId(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # NB: to ease modification of the genreated XML files, we restrict IDs to 50 (see getInputPropertyPrefix)
+    #     in order to have the same value for ID and prefix of input properties
+    return isInputPropertyPrefixValid(my.rawValue)
+endfunction isValidId
+
+
+function getId(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # NB: to ease modification of the genreated XML files, we restrict IDs to 50 (see getInputPropertyPrefix)
+    #     in order to have the same value for ID and prefix of input properties
+    return getInputPropertyPrefix(my.rawValue)
+endfunction getId
+
+
+function isInputPropertyPrefixValid(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # The longest property suffixes are _strokePattern and _strikeThrough i.e. 14 characters
+    # Thus, limist is 64 - 14 = 50
+    return (string.length(my.rawValue) <= 50)
+endfunction isInputPropertyPrefixValid
+
+
+function getInputPropertyPrefix(rawValue)
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # The longest property suffixes are _strokePattern and _strikeThrough i.e. 14 characters
+    # Thus, limist is 64 - 14 = 50
+    my.maxInputPrefixLength = 50
+
+    my.rawValueLength = string.length(my.rawValue)
+    if (my.rawValueLength > my.maxInputPrefixLength)
+        # hash value is located between 0 and 2147483647, i.e. its length is 1 to 10 characters
+        my.hash = hash(my.rawValue)
+        my.prefix = "x"
+        my.availableLength = my.maxInputPrefixLength - string.length(my.hash) - string.length(my.prefix) - 1
+        my.nameSuffix = string.substr(my.rawValue, my.rawValueLength - my.availableLength, my.rawValueLength - 1)
+        return "$(my.prefix)$(my.hash)_$(my.nameSuffix)"
+    else
+        return my.rawValue
+    endif
+endfunction getInputPropertyPrefix
+
+
+function getInputPropertyPrefixFromPath(path)
+    my.rawValue = "$(my.path:camel)"
+
+    # VAPS constraint: total length must be 64 or smaller
+    # ARINC661 Part2: A661P2_NameType is limited to 128 characters
+    # The longest property suffixes are _strokePattern and _strikeThrough i.e. 14 characters
+    # Thus, limist is 64 - 14 = 50
+    my.maxInputPrefixLength = 50
+
+    my.rawValueLength = string.length(my.rawValue)
+    if (my.rawValueLength > my.maxInputPrefixLength)
+        if regexp.match("^([^\\.]+)\\.(.+)$", my.path, fullPathLeftPart, fullPathRightPart)
+            #
+            # Advanced case: item with sub-items (level 2 and more)
+            #
+            my.itemName = "$(fullPathLeftPart:camel)"
+            my.subItemFullpath = "$(fullPathRightPart:camel)"
+
+            my.prefix = "x"
+            my.itemNameHash = hash(my.itemName)
+            my.availableLength = my.maxInputPrefixLength - string.length(my.itemNameHash) - string.length(my.prefix) - 1
+
+            my.subItemFullpathLength = string.length(my.subItemFullpath)
+            if (my.subItemFullpathLength <= my.availableLength)
+                # There is enough space to display the name
+                # xAA_name where AA is an hex encoded hash values (2 to 8 caracters)
+                return "$(my.prefix)$(my.itemNameHash)_$(my.subItemFullpath)"
+            else
+                # There isn't enough space to display the full name, so it needs to be shortened
+                if regexp.match("^([^\\.]+)\\.(.+)$", fullPathRightPart, leftPart, rightPart)
+                    #
+                    # Level 3 and more i.e. path = itemName.subItem.(subItem*).subItem
+                    #
+                    my.firstSubItemName = "$(leftPart:camel)"
+                    my.remainingSubPath = "$(rightPart:camel)"
+
+                    my.firstSubItemNameHash = hash(my.firstSubItemName)
+                    my.availableLength = my.availableLength - string.length(my.firstSubItemNameHash) - 1
+
+                    my.remainingSubPathLength = string.length(my.remainingSubPath)
+                    if (my.remainingSubPathLength > my.availableLength)
+                        my.remainingSubPathHash = hash(my.remainingSubPath)
+                        my.availableLength = my.availableLength - string.length(my.remainingSubPathHash) - 1
+                        my.remainingSubPathSuffix = string.substr(my.remainingSubPath, my.remainingSubPathLength - my.availableLength, my.remainingSubPathLength - 1)
+
+                        # xAA_BB_CC_elidedName where AA, BB and CC are hex encoded hash values (2 to 8 caracters each)
+                        return "$(my.prefix)$(my.itemNameHash)_$(my.firstSubItemNameHash)_$(my.remainingSubPathHash)_$(my.remainingSubPathSuffix)"
+                    else
+                        # xAA_BB_name where AA and BB are hex encoded hash values (2 to 8 caracters each)
+                        return "$(my.prefix)$(my.itemNameHash)_$(my.firstSubItemNameHash)_$(my.remainingSubPath)"
+                    endif
+                else
+                    #
+                    # Level 2 i.e. path = itemName.subItemName
+                    #
+                    my.subItemFullpathHash = hash(my.subItemFullpath)
+                    my.availableLength = my.availableLength - string.length(my.subItemFullpathHash) - 1
+                    my.subItemFullpathSuffix = string.substr(my.subItemFullpath, my.subItemFullpathLength - my.availableLength, my.subItemFullpathLength - 1)
+
+                    # xAA_BB_name where AA and BB are hex encoded hash values (2 to 8 caracters each)
+                    return "$(my.prefix)$(my.itemNameHash)_$(my.subItemFullpathHash)_$(my.subItemFullpathSuffix)"
+                endif
+            endif
+        else
+            #
+            # Simple case: level 1 i.e. path = itemName
+            #
+            return getInputPropertyPrefix(my.rawValue)
+        endif
+    else
+        return my.rawValue
+    endif
+endfunction getInputPropertyPrefixFromPath
+
+
+function getChildNamed(parent, targetName)
+    if count(my.parent.item)
+        for my.parent.item where "$(name:camel)" = my.targetName
+            return item
+        endfor
+    endif
+endfunction getChildNamed
+
+
+function getDescendantNamed(parent, targetName)
+    if count(my.parent.item)
+        for my.parent.item
+            if ("$(item.name:camel)" = my.targetName)
+                return item
+            elsif count(item.item)
+                my.temp = getDescendantNamed(item, my.targetName)?
+                if defined(my.temp)
+                    return my.temp
+                endif
+            endif
+        endfor
+    endif
+endfunction getDescendantNamed
+
+
+function getOverrideWithPathAndType(item, targetName, targetType)
+    if count(my.item.override)
+        for my.item.override
+            if ((override.on = my.targetName) & (override.property = my.targetType))
+                return override
+            endif
+        endfor
+    endif
+endfunction getOverrideWithPathAndType
+
+
+function currentComponentHasImageOverrideForItem(item)
+    my.name = "$(my.item.name:camel)"
+
+    if defined(global.sketch2arinc661_currentComponent)
+        if count(global.sketch2arinc661_currentComponent.overridable)
+            for global.sketch2arinc661_currentComponent.overridable
+                if isImageOverride(overridable)
+                    if (overridable.on = my.name)
+                        return 1
+                    endif
+                endif
+            endfor
+        endif
+    endif
+    
+    return 0
+endfunction currentComponentHasImageOverrideForItem
+
+
+function currentComponentHasTextStyleOverrideForItem(item)
+    my.name = "$(my.item.name:camel)"
+
+    if defined(global.sketch2arinc661_currentComponent)
+        if count(global.sketch2arinc661_currentComponent.overridable)
+            for global.sketch2arinc661_currentComponent.overridable
+                if isTextStyleOverride(overridable)
+                    if (overridable.on = my.name)
+                        return 1
+                    endif
+                endif
+            endfor
+        endif
+    endif
+    
+    return 0
+endfunction currentComponentHasTextStyleOverrideForItem
+
+
+function currentComponentHasStringValueOverrideForItem(item)
+    my.name = "$(my.item.name:camel)"
+
+    if defined(global.sketch2arinc661_currentComponent)
+        if count(global.sketch2arinc661_currentComponent.overridable)
+            for global.sketch2arinc661_currentComponent.overridable
+                if isStringValueOverride(overridable)
+                    if (overridable.on = my.name)
+                        return 1
+                    endif
+                endif
+            endfor
+        endif
+    endif
+    
+    return 0
+endfunction currentComponentHasStringValueOverrideForItem
+
+
+function currentComponentHasLayerStyleOverrideForItem(item)
+    my.name = "$(my.item.name:camel)"
+
+    if defined(global.sketch2arinc661_currentComponent)
+        if count(global.sketch2arinc661_currentComponent.overridable)
+            for global.sketch2arinc661_currentComponent.overridable
+                if isLayerStyleOverride(overridable)
+                    if (overridable.on = my.name)
+                        return 1
+                    endif
+                endif
+            endfor
+        endif
+    endif
+    
+    return 0
+endfunction currentComponentHasLayerStyleOverrideForItem
+
+
+function currentComponentHasOverridesForItem(item)
+    my.name = "$(my.item.name:camel)"
+
+    if defined(global.sketch2arinc661_currentComponent)
+        if count(global.sketch2arinc661_currentComponent.overridable)
+            for global.sketch2arinc661_currentComponent.overridable
+                if (overridable.on = my.name)
+                    return 1
+                endif
+            endfor
+        endif
+    endif
+    
+    return 0
+endfunction currentComponentHasOverridesForItem
+
+
+function useAsMask(item)
+    return (defined (my.item.isMask) & my.item.isMask)
+endfunction useAsMask
+
+
+function hasHorizontalFlipTransform(item)
+    return (defined(my.item.flippedHorizontally) & my.item.flippedHorizontally)
+endfunction hasHorizontalFlipTransform
+
+
+function hasVerticalFlipTransform(item)
+    return (defined(my.item.flippedVertically) & my.item.flippedVertically)
+endfunction hasVerticalFlipTransform
+
+
+function hasRotateTransform(item)
+    return (defined(my.item.rotation) & !(my.item.rotation = 0))
+endfunction hasRotateTransform
+
+
+function hasTransformations(item)
+    return (hasRotateTransform(item) | hasHorizontalFlipTransform(item) | hasVerticalFlipTransform(item))
+endfunction hasTransformations
+
+
+
+#############################################################################
+# Render generic files
+#
+#############################################################################
+
+function renderResources_ColorPalette(appOrLibrary, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<ColorPalette>
+    if count(my.appOrLibrary.swatch)
+        for my.appOrLibrary.swatch
+            my.rgbaColor = hexArgbToRgba(swatch.color)
+>$(my.indent)$(my.subIndent)<ColorReference name="$(swatch.name:camel)" >$(my.rgbaColor)</ColorReference>
+        endfor
+    endif
+>$(my.indent)</ColorPalette>
+endfunction renderResources_ColorPalette
+
+
+function renderResourcesImageFromItem(myItem, level)
+    my.indent = getIndent(my.level)
+    my.sourceDir = "resources/$(global.sketch2arinc661_appOrLibraryName)/images"
+    my.targetDir = "$(global.sketch2arinc661_appOrLibraryDir)/Resources/images"
+   
+    # Items exported as images
+    if count(my.myItem.export) 
+        directory.create(my.imagesDir)
+        for my.myItem.export
+            if first()
+                echo "Exporting image $(export.file)"
+                if regexp.match(".*/([^/]+)$", export.file, fileName)
+                    forceCopyFile("$(export.file)", "$(my.targetDir)/$(fileName)")
+                    my.imageName = getImageName(fileName)
+>$(my.indent)<ImageReference name="$(my.imageName)" >Resources/images/$(fileName)</ImageReference>
+                else
+                    forceCopyFile("$(export.file)", "$(my.targetDir)/$(export.file)")
+                    my.imageName = getImageName(export.file)
+>$(my.indent)<ImageReference name="$(my.imageName)" >Resources/images/$(export.file)</ImageReference>
+                endif
+                last
+            endif
+        endfor
+    endif
+    
+    # Image overrides
+    for my.myItem.override
+        if (isImageOverride(override) & !overrideIsDefault(override))
+            echo "Exporting image override $(override.value)"
+            directory.create(my.imagesDir)
+            if regexp.match("^.*/([^/]+)$", override.value, fileName)
+                forceCopyFile("$(override.value)", "$(my.targetDir)/$(fileName)")
+                my.imageName = getImageName(fileName)
+>$(my.indent)<ImageReference name="$(my.imageName)" >Resources/images/$(fileName)</ImageReference>
+            else
+                forceCopyFile("$(override.value)", "$(my.targetDir)/$(override.value)")
+                my.imageName = getImageName(override.value)
+>$(my.indent)<ImageReference name="$(my.imageName)" >Resources/images/$(override.value)</ImageReference>
+            endif
+        endif
+    endfor
+
+    for my.myItem.item
+        renderResourcesImageFromItem(item, my.level)
+    endfor
+endfunction renderResourcesImageFromItem
+
+
+function renderResources_Images(appOrLibrary, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.targetDir = "$(global.sketch2arinc661_appOrLibraryDir)/Resources/images"
+    directory.create(my.targetDir)
+
+>$(my.indent)<Images>
+    # Components
+    if count(my.appOrLibrary.component)
+        for my.appOrLibrary.component
+            for component.item
+                renderResourcesImageFromItem(item, my.level + 1)
+            endfor
+        endfor
+    endif 
+    
+    # Content of pages
+    if count(my.appOrLibrary.page)
+        for my.appOrLibrary.page
+            # Layers that are not associated to an arboard
+            for page.item
+                renderResourcesImageFromItem(item, my.level + 1)
+            endfor
+            # Artboards
+            for page.screen
+                renderResourcesImageFromItem(screen, my.level + 1)
+            endfor
+        endfor          
+    endif
+>$(my.indent)</Images>
+endfunction renderResources_Images
+
+
+function renderResources_Fonts(appOrLibrary, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<Fonts>
+    # B612 fonts
+>$(my.indent)$(my.subIndent)<FontFamily name="AIB612Bold" >Resources/fonts/B612-Bold.vbfnt</FontFamily>
+>$(my.indent)$(my.subIndent)<FontFamily name="AIB612BoldItalic" >Resources/fonts/B612-BoldItalic.vbfnt</FontFamily>  
+>$(my.indent)$(my.subIndent)<FontFamily name="AIB612Italic" >Resources/fonts/B612-Italic.vbfnt</FontFamily>  
+>$(my.indent)$(my.subIndent)<FontFamily name="AIB612Regular" >Resources/fonts/B612-Regular.vbfnt</FontFamily>  
+
+
+    # Other fonts
+    if count(my.appOrLibrary.font) 
+        my.targetDir = "$(global.sketch2arinc661_appOrLibraryDir)/Resources/fonts"
+        directory.create(my.targetDir)
+
+        for my.appOrLibrary.font
+            my.fontName = "$(font.name:Pascal)"
+            if isB612FontFamily(my.fontName)
+                echo "Skipping B612 TTF font $(font.file) - we will use a vbfnt font"
+            else
+                if regexp.match(".*/([^/]+)$", font.file, fileName)
+                    forceCopyFile("$(font.file)", "$(my.targetDir)/$(fileName)")
+                    my.fontFileName = convertFontFileName(fileName)
+>$(my.indent)$(my.subIndent)<FontFamily name="$(font.name:Pascal)" >Resources/fonts/$(my.fontFileName)</FontFamily>                
+                else
+                    forceCopyFile("$(font.file)", "$(my.targetDir)/$(font.file)")
+                    my.fontFileName = convertFontFileName(font.file)
+>$(my.indent)$(my.subIndent)<FontFamily name="$(font.name:Pascal)" >Resources/$(my.fontFileName)</FontFamily>                
+                endif
+            endif
+        endfor
+    endif
+>$(my.indent)</Fonts>
+endfunction renderResources_Fonts
+
+
+function renderResources_ColorPaletteFile(appOrLibrary)
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    renderResources_ColorPalette(my.appOrLibrary, 1)
+></Resources>
+endfunction renderResources_ColorPaletteFile
+
+
+function renderResources_ImagesFile(appOrLibrary)
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    renderResources_Images(my.appOrLibrary, 1)
+></Resources>
+endfunction renderResources_ImagesFile
+
+
+function renderResources_FontsFile(appOrLibrary)
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    renderResources_Fonts(my.appOrLibrary, 1)
+></Resources>
+endfunction renderResources_FontsFile
+
+
+function cleanResourcesFile(tempFile)
+    my.xml ?= xml.load_file (my.tempFile)
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    if defined(my.xml)
+        my.subIndent = getIndent(1)
+
+        if count(my.xml.ColorPalette)
+>$(my.subIndent)<ColorPalette>
+            for my.xml.ColorPalette
+                my.previousName = ""
+                for ColorPalette.ColorReference by name
+                    my.candidateName = "$(name)"
+                    if !(my.previousName = my.candidateName)
+>$(my.subIndent)$(my.subIndent)<ColorReference name="$(name)" >$(ColorReference)</ColorReference>
+                        my.previousName = my.candidateName                
+                    endif
+                endfor
+            endfor
+>$(my.subIndent)</ColorPalette>
+        endif
+
+        if count(my.xml.Images)
+>
+>$(my.subIndent)<Images>
+            for my.xml.Images
+                my.previousName = ""
+                for Images.ImageReference by name
+                    my.candidateName = "$(name)"
+                    if !(my.previousName = my.candidateName)
+>$(my.subIndent)$(my.subIndent)<ImageReference name="$(name)" >$(ImageReference)</ImageReference>
+                        my.previousName = my.candidateName
+                    endif
+                endfor
+            endfor
+>$(my.subIndent)</Images>
+        endif
+
+        if count(my.xml.Fonts)
+>
+>$(my.subIndent)<Fonts>
+            for my.xml.Fonts
+                my.previousName = ""
+                for Fonts.FontFamily by name
+                    my.candidateName = "$(name)"
+                    if !(my.previousName = my.candidateName)
+>$(my.subIndent)$(my.subIndent)<FontFamily name="$(name)" >$(FontFamily)</FontFamily>
+                        my.previousName = my.candidateName
+                    endif
+                endfor
+            endfor
+>$(my.subIndent)</Fonts>
+        endif
+    endif
+></Resources>
+endfunction cleanResourcesFile
+
+
+function mergeResourcesSubFiles(colorPaletteFile, imagesFile, fontsFile)
+    my.subIndent = getIndent(1)
+    my.colorPaletteXml ?= xml.load_file (my.colorPaletteFile)
+    my.imagesXml ?= xml.load_file (my.imagesFile)
+    my.fontsXml ?= xml.load_file (my.fontsFile)
+
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    if defined (my.colorPaletteXml)
+        if count(my.colorPaletteXml.ColorPalette)
+>$(my.subIndent)<ColorPalette>
+            for my.colorPaletteXml.ColorPalette
+                for ColorPalette.ColorReference
+>$(my.subIndent)$(my.subIndent)<ColorReference name="$(ColorReference.name)" >$(ColorReference)</ColorReference>
+                endfor
+            endfor
+>$(my.subIndent)</ColorPalette>
+        endif
+    endif
+
+    if defined (my.imagesXml)
+        if count(my.imagesXml.Images)
+>
+>$(my.subIndent)<Images>
+            for my.imagesXml.Images
+                for Images.ImageReference
+>$(my.subIndent)$(my.subIndent)<ImageReference name="$(ImageReference.name)" >$(ImageReference)</ImageReference>
+                endfor
+            endfor
+>$(my.subIndent)</Images>
+        endif
+    endif
+
+    if defined (my.fontsXml)
+        if count(my.fontsXml.Fonts)
+>
+>$(my.subIndent)<Fonts>
+            for my.fontsXml.Fonts
+                for Fonts.FontFamily
+>$(my.subIndent)$(my.subIndent)<FontFamily name="$(FontFamily.name)" >$(FontFamily)</FontFamily>
+                endfor
+            endfor
+>$(my.subIndent)</Fonts>
+        endif
+    endif
+></Resources>
+endfunction mergeResourcesSubFiles
+
+
+function mergeResourcesFile(file1, file2)
+    my.subIndent = getIndent(1)
+    my.file1Xml ?= xml.load_file (my.file1)
+    my.file2Xml ?= xml.load_file (my.file2)
+
+><?xml version="1.0" encoding="UTF-8"?>
+><Resources>
+    if (defined (my.file1Xml) & count(my.file1Xml.ColorPalette)) | (defined (my.file2Xml) & count(my.file2Xml.ColorPalette))
+>$(my.subIndent)<ColorPalette>
+        if defined (my.file1Xml)
+            for my.file1Xml.ColorPalette
+                for ColorPalette.ColorReference
+>$(my.subIndent)$(my.subIndent)<ColorReference name="$(ColorReference.name)" >$(ColorReference)</ColorReference>
+                endfor
+            endfor
+        endif
+        if defined (my.file2Xml)
+            for my.file2Xml.ColorPalette
+                for ColorPalette.ColorReference
+>$(my.subIndent)$(my.subIndent)<ColorReference name="$(ColorReference.name)" >$(ColorReference)</ColorReference>
+                endfor
+            endfor
+        endif
+>$(my.subIndent)</ColorPalette>
+    endif
+
+    if (defined (my.file1Xml) & count(my.file1Xml.Images)) | (defined (my.file2Xml) & count(my.file2Xml.Images))
+>
+>$(my.subIndent)<Images>
+        if defined (my.file1Xml)
+            for my.file1Xml.Images
+                for Images.ImageReference
+>$(my.subIndent)$(my.subIndent)<ImageReference name="$(ImageReference.name)" >$(ImageReference)</ImageReference>
+                endfor
+            endfor
+        endif
+        if defined (my.file2Xml)
+            for my.file2Xml.Images
+                for Images.ImageReference
+>$(my.subIndent)$(my.subIndent)<ImageReference name="$(ImageReference.name)" >$(ImageReference)</ImageReference>
+                endfor
+            endfor
+        endif
+>$(my.subIndent)</Images>
+    endif
+
+    if (defined (my.file1Xml) & count(my.file1Xml.Fonts)) | (defined (my.file2Xml) & count(my.file2Xml.Fonts))
+>
+>$(my.subIndent)<Fonts>
+        if defined (my.file1Xml)
+            for my.file1Xml.Fonts
+                for Fonts.FontFamily
+>$(my.subIndent)$(my.subIndent)<FontFamily name="$(FontFamily.name)" >$(FontFamily)</FontFamily>
+                endfor
+            endfor
+        endif
+        if defined (my.file2Xml)
+            for my.file2Xml.Fonts
+                for Fonts.FontFamily
+>$(my.subIndent)$(my.subIndent)<FontFamily name="$(FontFamily.name)" >$(FontFamily)</FontFamily>
+                endfor
+            endfor
+        endif
+>$(my.subIndent)</Fonts>
+    endif
+></Resources>
+endfunction mergeResourcesFile
+
+
+function renderResources(appOrLibrary)
+    my.resourcesDir = "$(global.sketch2arinc661_appOrLibraryDir)/Resources"
+
+    # Color palette
+    echo "- Generating resources - color palette"
+    if global.sketch2arinc661_isApp 
+        output "$(my.resourcesDir)/ColorPalette_App.xml"
+    else
+        output "$(my.resourcesDir)/ColorPalette_Library.xml"
+    endif
+    renderResources_ColorPaletteFile(my.appOrLibrary)
+
+    # Images
+    echo "- Generating resources - images"
+    output "$(my.resourcesDir)/Images_temp.xml"
+    renderResources_ImagesFile(my.appOrLibrary)
+    if global.sketch2arinc661_isApp 
+        output "$(my.resourcesDir)/Images_App.xml"
+    else
+        output "$(my.resourcesDir)/Images_Library.xml"
+    endif
+    cleanResourcesFile("$(my.resourcesDir)/Images_temp.xml")
+    file.delete("$(my.resourcesDir)/Images_temp.xml")
+    
+    # Fonts
+    echo "- Generating resources - fonts"
+    if global.sketch2arinc661_isApp 
+        output "$(my.resourcesDir)/Fonts_App.xml"
+    else
+        output "$(my.resourcesDir)/Fonts_Library.xml"
+    endif
+    renderResources_FontsFile(my.appOrLibrary)
+
+    # Global
+    if global.sketch2arinc661_isApp 
+        output "$(my.resourcesDir)/Resources_App.xml"
+        mergeResourcesSubFiles("$(my.resourcesDir)/ColorPalette_App.xml", "$(my.resourcesDir)/Images_App.xml", "$(my.resourcesDir)/Fonts_App.xml")
+    else
+        output "$(my.resourcesDir)/Resources_Library.xml"
+        mergeResourcesSubFiles("$(my.resourcesDir)/ColorPalette_Library.xml", "$(my.resourcesDir)/Images_Library.xml", "$(my.resourcesDir)/Fonts_Library.xml")
+    endif
+
+    if global.sketch2arinc661_isApp 
+        # Color palette
+        output "$(my.resourcesDir)/ColorPalette_temp.xml"
+        mergeResourcesFile("$(my.resourcesDir)/ColorPalette_Library.xml", "$(my.resourcesDir)/ColorPalette_App.xml")
+        output "$(my.resourcesDir)/ColorPalette.xml"
+        cleanResourcesFile("$(my.resourcesDir)/ColorPalette_temp.xml")
+        file.delete("$(my.resourcesDir)/ColorPalette_temp.xml")
+
+        # Images
+        output "$(my.resourcesDir)/Images_temp.xml"
+        mergeResourcesFile("$(my.resourcesDir)/Images_Library.xml", "$(my.resourcesDir)/Images_App.xml")
+        output "$(my.resourcesDir)/Images.xml"
+        cleanResourcesFile("$(my.resourcesDir)/Images_temp.xml")
+        file.delete("$(my.resourcesDir)/Images_temp.xml")
+
+        # Fonts
+        output "$(my.resourcesDir)/Fonts_temp.xml"
+        mergeResourcesFile("$(my.resourcesDir)/Fonts_Library.xml", "$(my.resourcesDir)/Fonts_App.xml")
+        output "$(my.resourcesDir)/Fonts.xml"
+        cleanResourcesFile("$(my.resourcesDir)/Fonts_temp.xml")
+        file.delete("$(my.resourcesDir)/Fonts_temp.xml")
+
+        # Global
+        output "$(my.resourcesDir)/Resources_temp.xml"
+        mergeResourcesFile("$(my.resourcesDir)/Resources_Library.xml", "$(my.resourcesDir)/Resources_App.xml")
+        output "$(my.resourcesDir)/Resources.xml"
+        cleanResourcesFile("$(my.resourcesDir)/Resources_temp.xml")
+        file.delete("$(my.resourcesDir)/Resources_temp.xml")
+    endif
+endfunction renderResources
+
+
+
+
+#############################################################################
+# Render properties
+#
+#############################################################################
+
+function renderCoreVisibility(item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<CoreVisibility>
+    if (my.isInLibrary & currentComponentHasOverridesForItem(my.item))
+        my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<visible.binding>Interface.$(my.propertyPrefix)_visible</visible.binding>
+    else
+        if (defined(my.item.hidden) & my.item.hidden)
+>$(my.indent)$(my.subIndent)<visible>false</visible>
+        else
+>$(my.indent)$(my.subIndent)<visible>true</visible>
+        endif
+    endif
+>$(my.indent)</CoreVisibility>
+endfunction renderCoreVisibility
+
+
+function renderCoreVisibility_SymbolInstance(item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<CoreVisibility>
+    if (!my.isInLibrary | currentComponentHasOverridesForItem(my.item))
+        # Special case: we want to use a binding if our instance is rendered in a screen (artboard)
+        #               or a component of our library
+        my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<visible.binding>Interface.$(my.propertyPrefix)_visible</visible.binding>
+    else
+        if (defined(my.item.hidden) & my.item.hidden)
+>$(my.indent)$(my.subIndent)<visible>false</visible>
+        else
+            if (string.length(my.item.symbolMaster) > 0)
+>$(my.indent)$(my.subIndent)<visible>true</visible>
+            else
+                # No symbol => we hide our instance because we can not remove it
+>$(my.indent)$(my.subIndent)<!-- Special case: no symbol, we assume that it means that our symbol instance is not visible -->
+>$(my.indent)$(my.subIndent)<value>false</value>
+            endif
+        endif
+    endif
+>$(my.indent)</CoreVisibility>
+endfunction renderCoreVisibility_SymbolInstance
+
+
+function renderReferenceBoxPositionAndSize(item, level, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<position>
+>$(my.indent)$(my.subIndent)<topLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<x>$(my.item.x)</x>
+    if my.parentIsRoot
+        if !(my.item.y = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y.binding>ToFloat(Interface.size.height - $(my.item.y))</y.binding>
+        else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y.binding>Interface.size.height</y.binding>
+        endif
+    else
+        my.convertedY = convertY(my.item.y)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y>$(my.convertedY)</y>
+    endif
+>$(my.indent)$(my.subIndent)</topLeft>
+>$(my.indent)</position>
+
+>$(my.indent)<size>
+>$(my.indent)$(my.subIndent)<width>$(my.item.width)</width>
+>$(my.indent)$(my.subIndent)<height>$(my.item.height)</height>
+>$(my.indent)</size>
+endfunction renderReferenceBoxPositionAndSize
+
+
+function renderReferenceBox(item, level, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<ReferenceBox>
+>$(my.indent)$(my.subIndent)<refBox>
+
+    if !my.parentIsRoot
+        # Basic behavior: x, y, width, height
+        renderReferenceBoxPositionAndSize(my.item, my.level + 2, my.parentIsRoot)
+    else
+        my.useLeftAnchor = hasFixedLeft(my.item)
+        my.useRightAnchor = hasFixedRight(my.item)
+        my.useTopAnchor = hasFixedTop(my.item)
+        my.useBottomAnchor =  hasFixedBottom(my.item)
+
+        if (my.useLeftAnchor & my.useRightAnchor & my.useTopAnchor & my.useBottomAnchor)
+            # All anchors (left, right, top, bottom)
+            my.leftMargin = my.item.x
+            my.topMargin = my.item.y
+            my.rightMargin = my.item.fixedRight
+            my.bottomMargin = my.item.fixedBottom
+            my.deltaWidth = my.leftMargin + my.rightMargin
+            my.deltaHeight = my.topMargin + my.bottomMargin
+
+>$(my.indent)$(my.subIndent)$(my.subIndent)<position>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<bottomLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x>$(my.leftMargin)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y>$(my.bottomMargin)</y>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</bottomLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</position>
+
+>$(my.indent)$(my.subIndent)$(my.subIndent)<size>
+            if !(my.deltaWidth = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width.binding>ToFloat(Interface.size.width - $(my.deltaWidth))</width.binding>
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width.binding>Interface.size.width</width.binding>
+            endif
+            if !(my.deltaHeight = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height.binding>ToFloat(Interface.size.height - $(my.deltaHeight))</height.binding>
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height.binding>Interface.size.height</height.binding>
+            endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)</size>
+
+        elsif (my.useLeftAnchor | my.useRightAnchor | my.useTopAnchor | my.useBottomAnchor)
+            # At least one anchor
+            my.widthIsStretchable = (my.useLeftAnchor & my.useRightAnchor)
+            my.heightIsStretchable = ( my.useTopAnchor & my.useBottomAnchor)
+            my.leftMargin = my.item.x
+            my.topMargin = my.item.y
+            my.rightMargin = 0
+            my.bottomMargin = 0
+
+            if my.useRightAnchor
+                my.rightMargin = my.item.fixedRight
+            endif
+            
+            if my.useBottomAnchor
+                my.bottomMargin = my.item.fixedBottom
+            endif
+            
+            # Position
+>$(my.indent)$(my.subIndent)$(my.subIndent)<position>
+            if (my.useRightAnchor & !my.useLeftAnchor)
+                # Right side
+                if my.useBottomAnchor
+                    # Bottom or both (bottom and top)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<bottomRight>
+                    if !(my.rightMargin = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x.binding>ToFloat(Interface.size.width - $(my.rightMargin))</x.binding>
+                    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x.binding>Interface.size.width</x.binding>
+                    endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y>$(my.bottomMargin)</y>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</bottomRight>
+                else
+                    # Top only
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<topRight>
+                    if !(my.rightMargin = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x.binding>ToFloat(Interface.size.width - $(my.rightMargin))</x.binding>
+                    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x.binding>Interface.size.width</x.binding>
+                    endif
+                    if !(my.topMargin = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y.binding>ToFloat(Interface.size.height - $(my.topMargin))</y.binding>
+                    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y.binding>Interface.size.height</y.binding>
+                    endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</topRight>
+                endif
+            else
+                # Left side
+                if my.useBottomAnchor
+                    # Bottom or both (bottom and top)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<bottomLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x>$(my.leftMargin)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y>$(my.bottomMargin)</y>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</bottomLeft>
+                else
+                    # Top only
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<topLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x>$(my.leftMargin)</x>
+                    if !(my.topMargin = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y.binding>ToFloat(Interface.size.height - $(my.topMargin))</y.binding>
+                    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y.binding>Interface.size.height</y.binding>
+                    endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</topLeft>
+                endif
+            endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)</position>
+
+            # Size
+>$(my.indent)$(my.subIndent)$(my.subIndent)<size>
+            if my.widthIsStretchable
+                my.deltaWidth = my.leftMargin + my.rightMargin
+                if !(my.deltaWidth = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width.binding>ToFloat(Interface.size.width - $(my.deltaWidth))</width.binding>
+                else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width.binding>Interface.size.width</width.binding>
+                endif
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width>$(my.item.width)</width>
+            endif
+            if my.heightIsStretchable
+                my.deltaHeight = my.topMargin + my.bottomMargin
+                if !(my.deltaHeight = 0)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height.binding>ToFloat(Interface.size.height - $(my.deltaHeight))</height.binding>
+                else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height.binding>Interface.size.height</height.binding>
+                endif
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height>$(my.item.height)</height>
+            endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)</size>
+
+        else
+            # No anchor
+            renderReferenceBoxPositionAndSize(my.item, my.level + 2, my.parentIsRoot)
+        endif
+    endif
+
+>$(my.indent)$(my.subIndent)</refBox>
+>$(my.indent)</ReferenceBox>
+endfunction renderReferenceBox
+
+
+function renderSymbolInstancePositionAndSize_default(item, level, forcePositionToOrigin)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.x = 0
+    my.y = 0
+    if (!my.forcePositionToOrigin)
+        my.x = my.item.x
+        my.y = convertY(my.item.y + my.item.height)
+    endif
+
+    # Position
+>$(my.indent)<position>
+>$(my.indent)$(my.subIndent)<x>$(my.x)</x>
+>$(my.indent)$(my.subIndent)<y>$(my.y)</y>
+>$(my.indent)</position>
+
+    # Size
+>$(my.indent)<size>
+>$(my.indent)$(my.subIndent)<width>$(my.item.width)</width>
+>$(my.indent)$(my.subIndent)<height>$(my.item.height)</height>
+>$(my.indent)</size>
+endfunction renderSymbolInstancePositionAndSize_default
+
+
+function renderSymbolInstancePositionAndSize(item, level, parentIsRoot, forcePositionToOrigin)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    if (!my.parentIsRoot | my.forcePositionToOrigin)
+        renderSymbolInstancePositionAndSize_default(my.item, my.level, my.forcePositionToOrigin)
+    else
+        my.useLeftAnchor = hasFixedLeft(my.item)
+        my.useRightAnchor = hasFixedRight(my.item)
+        my.useTopAnchor = hasFixedTop(my.item)
+        my.useBottomAnchor =  hasFixedBottom(my.item)
+
+        if (my.useLeftAnchor & my.useRightAnchor & my.useTopAnchor & my.useBottomAnchor)
+            # All anchors (left, right, top, bottom)
+            my.leftMargin = my.item.x
+            my.topMargin = my.item.y
+            my.rightMargin = my.item.fixedRight
+            my.bottomMargin = my.item.fixedBottom
+            my.deltaWidth = my.leftMargin + my.rightMargin
+            my.deltaHeight = my.topMargin + my.bottomMargin
+
+            # Position
+>$(my.indent)<position>
+>$(my.indent)$(my.subIndent)<x>$(my.leftMargin)</x>
+>$(my.indent)$(my.subIndent)<y>$(my.bottomMargin)</y>
+>$(my.indent)</position>
+
+            # Size
+>$(my.indent)<size>
+            if !(my.deltaWidth = 0) 
+>$(my.indent)$(my.subIndent)<width.binding>ToFloat(Interface.size.width - $(my.deltaWidth))</width.binding>
+            else
+>$(my.indent)$(my.subIndent)<width.binding>Interface.size.width</width.binding>
+            endif
+
+            if !(my.deltaHeight = 0)
+>$(my.indent)$(my.subIndent)<height.binding>ToFloat(Interface.size.height - $(my.deltaHeight))</height.binding>
+            else
+>$(my.indent)$(my.subIndent)<height.binding>Interface.size.height</height.binding>
+            endif
+>$(my.indent)</size>
+
+        elsif (my.useLeftAnchor | my.useRightAnchor | my.useTopAnchor | my.useBottomAnchor)
+            # At least one anchor
+            my.widthIsStretchable = (my.useLeftAnchor & my.useRightAnchor)
+            my.heightIsStretchable = ( my.useTopAnchor & my.useBottomAnchor)
+            my.leftMargin = my.item.x
+            my.topMargin = my.item.y
+            my.rightMargin = 0
+            my.bottomMargin = 0
+
+            if my.useRightAnchor
+                my.rightMargin = my.item.fixedRight
+            endif
+            
+            if my.useBottomAnchor
+                my.bottomMargin = my.item.fixedBottom
+            endif
+
+            # Position
+>$(my.indent)<position>
+            if (my.useRightAnchor & !my.useLeftAnchor)
+                # Right side
+                my.deltaXAxis = my.rightMargin + my.item.width
+                if !(my.deltaXAxis = 0)
+>$(my.indent)$(my.subIndent)<x.binding>ToFloat(Interface.size.width - $(my.deltaXAxis))</x.binding>
+                else
+>$(my.indent)$(my.subIndent)<x.binding>Interface.size.width</x.binding>
+                endif
+            else
+                # Left side
+>$(my.indent)$(my.subIndent)<x>$(my.leftMargin)</x>
+            endif
+
+            if my.useBottomAnchor
+                # Bottom or both (bottom and top)
+>$(my.indent)$(my.subIndent)<y>$(my.bottomMargin)</y>
+            else
+                # Top only
+                my.deltaYAxis = my.topMargin + my.item.height
+                if !(my.deltaYAxis = 0)
+>$(my.indent)$(my.subIndent)<y.binding>ToFloat(Interface.size.height - $(my.deltaYAxis))</y.binding>
+                else
+>$(my.indent)$(my.subIndent)<y.binding>Interface.size.height</y.binding>
+                endif
+            endif
+>$(my.indent)</position>
+
+            # Size
+>$(my.indent)<size>
+            if my.widthIsStretchable
+                my.deltaWidth = my.leftMargin + my.rightMargin
+                if !(my.deltaWidth = 0)
+>$(my.indent)$(my.subIndent)<width.binding>ToFloat(Interface.size.width - $(my.deltaWidth))</width.binding>
+                else
+>$(my.indent)$(my.subIndent)<width.binding>Interface.size.width</width.binding>
+                endif
+            else
+>$(my.indent)$(my.subIndent)<width>$(my.item.width)</width>
+            endif
+
+            if my.heightIsStretchable
+                my.deltaHeight = my.topMargin + my.bottomMargin
+                if !(my.deltaHeight = 0)
+>$(my.indent)$(my.subIndent)<height.binding>ToFloat(Interface.size.height - $(my.deltaHeight))</height.binding>
+                else
+>$(my.indent)$(my.subIndent)<height.binding>Interface.size.height</height.binding>
+                endif
+            else
+>$(my.indent)$(my.subIndent)<height>$(my.item.height)</height>
+            endif
+>$(my.indent)</size>
+
+        else
+            # No anchor
+            renderSymbolInstancePositionAndSize_default(my.item, my.level, my.forcePositionToOrigin)
+        endif
+    endif
+endfunction renderSymbolInstancePositionAndSize
+
+
+function renderTransformGroupPrimitive_start(item, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.performRotation = hasRotateTransform(my.item)
+    my.performHorizontalFlip = hasHorizontalFlipTransform(my.item)
+    my.performVerticalFlip = hasVerticalFlipTransform(my.item)
+    my.performAtLeastOneFlip = (my.performHorizontalFlip | my.performVerticalFlip)
+    my.performBothFlips = (my.performHorizontalFlip & my.performVerticalFlip)
+
+    my.x0 = my.item.x
+    my.x1 = my.item.x + my.item.width
+    my.y0 = convertY(my.item.y)
+    my.y1 = convertY(my.item.y + my.item.height)
+
+    my.cx = (my.x0 + my.x1)/2.0
+    my.cy = (my.y0 + my.y1)/2.0
+
+    my.a = 1
+    my.b = 0
+    my.c = 0
+    my.d = 1
+    my.e = 0
+    my.f = 0
+
+    if (my.performRotation)
+        my.angleInRadians = -my.item.rotation * math.pi()/180.0
+        my.cosAngle = math.cos(my.angleInRadians)
+        my.sinAngle = math.sin(my.angleInRadians)
+
+        if (my.performBothFlips | !my.performAtLeastOneFlip)
+            # Rotation only
+            # NB: Both flips are equivalent to a rotation of 180°
+
+            if (my.performBothFlips)
+                # NB: cos(a + PI) = -cos(a)
+                #     sin(a + PI) = -sin(a)
+                my.cosAngle = -my.cosAngle
+                my.sinAngle = -my.sinAngle
+            endif
+
+            # Transformation matrix is
+            # translate(cx, cy) * rotate(angle) * translate(-cx, -cy)
+            my.a = my.cosAngle
+            my.b = my.sinAngle
+            my.c = -my.sinAngle
+            my.d = my.cosAngle
+            my.e = -my.cx * my.cosAngle + my.cy * my.sinAngle + my.cx
+            my.f = -my.cx * my.sinAngle - my.cy * my.cosAngle + my.cy
+        else
+            # Rotation and one flip
+            if (my.performHorizontalFlip)
+                # Transformation matrix is
+                # translate(cx, cy) * horizontalFlip * rotate(angle) * translate(-cx, -cy)
+                #
+                # where horizontalFlip is
+                # | -1  0  0 |
+                # |  0  1  0 |
+                # |  0  0  1 |
+                my.a = -my.cosAngle
+                my.b = my.sinAngle
+                my.c = my.sinAngle
+                my.d = my.cosAngle
+                my.e = my.cx * my.cosAngle - my.cy * my.sinAngle + my.cx
+                my.f = -my.cx * my.sinAngle - my.cy * my.cosAngle + my.cy
+            elsif (my.performVerticalFlip)
+                # Transformation matrix is
+                # translate(cx, cy) * verticallFlip * rotate(angle) * translate(-cx, -cy)
+                #
+                # where verticalFlip is
+                # | 1  0  0 |
+                # | 0 -1  0 |
+                # | 0  0  1 |
+                my.a = my.cosAngle
+                my.b = -my.sinAngle
+                my.c = -my.sinAngle
+                my.d = -my.cosAngle
+                my.e = -my.cx * my.cosAngle + my.cy * my.sinAngle + my.cx
+                my.f = my.cx * my.sinAngle + my.cy * my.cosAngle + my.cy
+            endif
+        endif
+    else
+        # No rotation, only flip(s)
+        if (my.performBothFlips)
+            # NB: Both flips are equivalent to a rotation of 180°
+            # Transformation matrix is
+            # translate(cx, cy) * rotate(180) * translate(-cx, -cy)
+            my.a = -1
+            my.b = 0
+            my.c = 0
+            my.d = -1
+            my.e = 2.0 * my.cx
+            my.f = 2.0 * my.cy
+        elsif (my.performHorizontalFlip)
+            # Horizontal flip only
+            # Transformation matrix is
+            # translate(cx, cy) * horizontalFlip * translate(-cx, -cy)
+            my.a = -1
+            my.b = 0
+            my.c = 0
+            my.d = 1
+            my.e = 2.0 * my.cx
+            my.f = 0
+        elsif (my.performVerticalFlip)
+            # Vertical flip only
+            # Transformation matrix is
+            # translate(cx, cy) * verticalFlip * translate(-cx, -cy)
+            my.a = 1
+            my.b = 0
+            my.c = 0
+            my.d = -1
+            my.e = 0
+            my.f = 2.0 * my.cy
+        endif
+    endif
+
+>$(my.indent)<!-- Transform group -->
+    my.transformId = getId("$(my.item.name:camel)__transform")
+>$(my.indent)<TransformGroupPrimitive id="$(my.transformId)">
+>$(my.indent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<visible>true</visible>
+>$(my.indent)$(my.subIndent)</CoreVisibility>
+>$(my.indent)$(my.subIndent)<CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<enable>true</enable>
+>$(my.indent)$(my.subIndent)</CoreInteractive>
+>$(my.indent)$(my.subIndent)<transform>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<member>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<matrix>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<a>$(my.a)</a>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<b>$(my.b)</b>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<c>$(my.c)</c>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<d>$(my.d)</d>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<e>$(my.e)</e>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<f>$(my.f)</f>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</matrix>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</member>
+>$(my.indent)$(my.subIndent)</transform>
+>$(my.indent)$(my.subIndent)<transform.constraints>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<maxArraySize>1</maxArraySize>
+>$(my.indent)$(my.subIndent)</transform.constraints>
+>$(my.indent)$(my.subIndent)<ChildrenGroup>
+
+    return (my.level + 2)
+endfunction renderTransformGroupPrimitive_start
+
+
+function renderTransformGroupPrimitive_end(level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)</TransformGroupPrimitive>
+endfunction renderTransformGroupPrimitive_end
+
+
+function renderClippingContainerPrimitive_start(item, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<!-- Clipping container -->
+    my.clipContainerId = getId("$(my.item.name:camel)__clipContainer")
+>$(my.indent)<ClippingContainerPrimitive id="$(my.clipContainerId)" >
+>$(my.indent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<visible>true</visible>
+>$(my.indent)$(my.subIndent)</CoreVisibility>
+>$(my.indent)$(my.subIndent)<invertedClipping>false</invertedClipping>
+>$(my.indent)$(my.subIndent)<ChildrenGroup>
+    my.clipPathId = getId("$(my.item.name:camel)__clipPath")
+>$(my.indent)$(my.subIndent)$(my.subIndent)<ClipPathPrimitive id="$(my.clipPathId)" >
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<ChildrenGroup>
+
+    return (my.level + 4)
+endfunction renderClippingContainerPrimitive_start
+
+
+function renderClippingContainerPrimitive_end(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</ClipPathPrimitive>
+
+    renderItemChildrenInClip(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary, my.parentIsRoot)
+>$(my.indent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)</ClippingContainerPrimitive>
+endfunction renderClippingContainerPrimitive_end
+
+
+function getColorValue(appOrLibrary, value)
+    if regexp.match("^swatch\\((.*)\\)$", my.value, swatchID)
+        if (string.length(swatchID) > 0) 
+            for my.appOrLibrary.swatch
+                if swatch.id = swatchID
+                    return "Resources.ColorPalette.$(swatch.name:camel)"
+                endif
+            endfor
+        endif
+
+        # Named color not found: we use black by default to see something
+        return "Resources.ColorPalette.stdBlack"
+    else
+        # Hex color
+        return hexArgbToRgba(my.value)
+    endif
+endfunction getColorValue
+
+
+function getImageSource(value)
+    if regexp.match(".*/([^/]+)$", my.value, fileName)
+        my.imageName = getImageName(fileName)
+        return "Resources.Images.$(my.imageName)"
+    else
+        my.imageName = getImage(my.value)
+        return "Resources.Images.$(my.imageName)"
+    endif
+endfunction getImageSource
+
+
+function isRawColorValue(value)
+    return regexp.match("^rgba\\((.*)\\)$", my.value)
+endfunction isRawColorValue
+
+
+function renderPaintFill(appOrLibrary, item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<PaintFill>
+    if (my.isInLibrary & currentComponentHasLayerStyleOverrideForItem(my.item))
+        #
+        # We use our interface
+        #
+        my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<fillPaint.binding>Interface.$(my.propertyPrefix)_fillPaint</fillPaint.binding>
+>$(my.indent)$(my.subIndent)<fillOpacity.binding>Interface.$(my.propertyPrefix)_opacity</fillOpacity.binding>
+
+    else
+        #
+        # PaintFill is not overridable
+        #
+
+        # - fillPaint
+>$(my.indent)$(my.subIndent)<fillPaint>
+        my.fillIsSet = 0
+        my.fillCount = count(my.item.fill)
+
+        if my.fillCount    
+            #NB: Parse list in reverse order (z-ordered list)
+            for my.item.fill by (my.fillCount - item(fill))
+                if ((fill.fillType = "Color") & fill.enabled)
+                    my.fillIsSet = 1
+                    my.fillColor = getColorValue(my.appOrLibrary, fill.color)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<color.initExpr>$(my.fillColor)</color.initExpr>
+                    last
+                endif
+            endfor
+        endif
+
+        if !my.fillIsSet
+>$(my.indent)$(my.subIndent)$(my.subIndent)<none/>
+        endif
+
+>$(my.indent)$(my.subIndent)</fillPaint>
+
+        # - fillOpacity
+        if defined(my.item.opacity)
+>$(my.indent)$(my.subIndent)<fillOpacity>$(my.item.opacity)</fillOpacity>    
+        else
+>$(my.indent)$(my.subIndent)<fillOpacity>1</fillOpacity>
+        endif
+
+    endif
+>$(my.indent)</PaintFill>
+endfunction renderPaintFill
+
+
+function renderPaintStroke(appOrLibrary, item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<PaintStroke>
+    if (my.isInLibrary & currentComponentHasLayerStyleOverrideForItem(my.item))
+        #
+        # We use our interface
+        #
+        my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<strokePaint.binding>Interface.$(my.propertyPrefix)_strokePaint</strokePaint.binding>
+>$(my.indent)$(my.subIndent)<strokePattern.binding>Interface.$(my.propertyPrefix)_strokePattern</strokePattern.binding>
+>$(my.indent)$(my.subIndent)<strokeStyle.binding>Interface.$(my.propertyPrefix)_strokeStyle</strokeStyle.binding>    
+
+    else
+        #
+        # PaintStroke is not overridable
+        #
+
+        # - strokePaint
+>$(my.indent)$(my.subIndent)<strokePaint>
+        my.borderIsSet = 0
+        my.borderCount = count(my.item.border)
+        my.borderWidth = 0
+
+        if my.borderCount
+            #NB: Parse list in reverse order (z-ordered list)
+            for my.item.border by (my.borderCount - item(border))
+                if ((border.fillType = "Color") & border.enabled)
+                    my.borderIsSet = 1
+                    my.borderWidth = border.thickness
+                    my.color = getColorValue(my.appOrLibrary, border.color)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<color.initExpr>$(my.color)</color.initExpr>
+                    last
+                endif
+            endfor
+        endif
+
+        if !my.borderIsSet
+>$(my.indent)$(my.subIndent)$(my.subIndent)<none/>
+        endif
+
+>$(my.indent)$(my.subIndent)</strokePaint>
+
+        # - strokePattern
+>$(my.indent)$(my.subIndent)<strokePattern>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<solid/>
+>$(my.indent)$(my.subIndent)</strokePattern>
+
+        # - strokeStyle
+>$(my.indent)$(my.subIndent)<strokeStyle>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<width>$(my.borderWidth)</width>
+        my.lineCapValue = lineCap(my.item.lineEnd)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineCap>$(my.lineCapValue)</lineCap>
+        my.lineJoinValue = lineJoin(my.item.lineJoin)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineJoin>$(my.lineJoinValue)</lineJoin>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<miterLimit>4.0</miterLimit>
+        if defined(my.item.opacity)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<opacity>$(my.item.opacity)</opacity>
+        else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<opacity>1</opacity>
+        endif
+>$(my.indent)$(my.subIndent)</strokeStyle>
+
+    endif
+>$(my.indent)</PaintStroke>
+endfunction renderPaintStroke
+
+
+function getTextValue(item)
+    for my.item.content
+        if first()
+            return content
+            last
+        endif
+    endfor
+endfunction getTextValue
+
+
+function _getTextTransformFromItemOrTextStyle(item)
+    if defined (my.item.textTransform)
+        return my.item.textTransform
+    else
+        return "none"
+    endif
+endfunction _getTextTransformFromItemOrTextStyle
+
+
+function getTextTransformFromItems(firstItem, secondItem)
+    if defined (my.firstItem.textTransform)
+        return _getTextTransformFromItemOrTextStyle(my.firstItem)
+    else
+        return _getTextTransformFromItemOrTextStyle(my.secondItem)
+    endif
+endfunction getTextTransformFromItems
+
+
+function getTextTransform(appOrLibrary, item)
+    my.value = "none"
+
+    if (defined(my.item.sharedStyleId) & sharedTextStyleExists(my.appOrLibrary, my.item.sharedStyleId))
+        my.textStyle = getSharedTextStyle(my.appOrLibrary, my.item.sharedStyleId)?
+        if defined(my.textStyle)
+            if isSharedStyleOutOfSync(my.item)
+                # Our text uses a variant of this text style
+                return getTextTransformFromItems(my.item, my.textStyle)
+            else
+                return _getTextTransformFromItemOrTextStyle(my.textStyle)
+            endif
+        else
+            echo "text style ($(my.item.sharedStyleId)) not found"
+            return _getTextTransformFromItemOrTextStyle(my.item)
+        endif
+    else
+        # No text style or unknown text style
+        return _getTextTransformFromItemOrTextStyle(my.item)
+    endif
+endfunction getTextTransform
+
+
+function getTextTransformOverride(appOrLibrary, override)
+    for my.override.textStyle
+        if first()
+            if (defined(textStyle.sharedStyleId) & sharedTextStyleExists(my.appOrLibrary, textStyle.sharedStyleId))
+                my.newTextStyle = getSharedTextStyle(my.appOrLibrary, textStyle.sharedStyleId)?
+                if defined(my.newTextStyle)
+                    if isSharedStyleOutOfSync(textStyle)
+                        my.firstItem = textStyle
+                        my.secondItem = my.newTextStyle
+                    else
+                        my.firstItem = my.newTextStyle
+                        my.secondItem = my.newTextStyle
+                    endif
+                else
+                    echo "text style ($(textStyle.sharedStyleId)) not found"
+                    my.firstItem = textStyle
+                    my.secondItem = textStyle
+                endif
+            else
+                my.firstItem = textStyle
+                my.secondItem = textStyle
+            endif
+
+            return  getTextTransformFromItems(my.firstItem, my.secondItem)
+            last
+        endif
+    endfor
+
+    return "none"
+endfunction
+
+
+function getAlignment(item)
+    if defined(my.item.alignment)
+        return my.item.alignment
+    else
+        return "left"
+    endif
+endfunction getAlignment
+
+
+function getVerticalAlignment(item)
+    if defined(my.item.verticalAlignment)
+        return my.item.verticalAlignment
+    else
+        return "top"
+    endif
+endfunction getVerticalAlignment
+
+
+function computeTextAlignment(alignment, verticalAlignment)
+    if (my.verticalAlignment = "center")
+        my.value = "center"
+    elsif (my.verticalAlignment = "bottom")
+        my.value = "bottom"
+    else
+        my.value = "top"
+    endif
+
+    if (my.alignment = "center")
+        if !(my.value = "center")
+            my.value = "$(my.value)Center"
+        endif
+    elsif (my.alignment = "right")
+        my.value = "$(my.value)Right"
+    else
+        # Left and Justify
+        my.value = "$(my.value)Left"
+    endif
+
+    return my.value
+endfunction computeTextAlignment
+
+
+function getTextAlignment(item)
+    my.alignment = getAlignment(my.item)
+    my.verticalAlignment = getVerticalAlignment(my.item)
+
+    return computeTextAlignment(my.alignment, my.verticalAlignment)
+endfunction getTextAlignment
+
+
+function getTextAlignmentFromItems(firstItem, secondItem)
+    if defined(my.firstItem.alignment)
+        my.alignment = getAlignment(my.firstItem)
+    else
+        my.alignment = getAlignment(my.secondItem)
+    endif
+
+    if defined(my.firstItem.verticalAlignment)
+        my.verticalAlignment = getVerticalAlignment(my.firstItem)
+    else
+        my.verticalAlignment = getVerticalAlignment(my.secondItem)
+    endif
+
+    return computeTextAlignment(my.alignment, my.verticalAlignment)
+endfunction getTextAlignmentFromItems
+
+
+function renderTextStyleProperties(appOrLibrary, item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    # Step 1: dynamic properties
+    if (my.isInLibrary & currentComponentHasTextStyleOverrideForItem(my.item))
+        #
+        # We use our interface
+        #
+        my.propertyPrefix = getInterfacePrefix(my.item)
+
+        # - Text decorations
+>$(my.indent)<underline.binding>Interface.$(my.propertyPrefix)_underline</underline.binding>
+>$(my.indent)<strikeThrough.binding>Interface.$(my.propertyPrefix)_strikeThrough</strikeThrough.binding>
+
+        # - Text alignments
+>$(my.indent)<alignment.binding>Interface.$(my.propertyPrefix)_alignment</alignment.binding>
+
+        # - Font
+>$(my.indent)<fontFamily.binding>Interface.$(my.propertyPrefix)_fontFamily</fontFamily.binding>
+>$(my.indent)<isBold.binding>Interface.$(my.propertyPrefix)_isBold</isBold.binding>
+>$(my.indent)<isItalic.binding>Interface.$(my.propertyPrefix)_isItalic</isItalic.binding>
+>$(my.indent)<fontSize.binding>Interface.$(my.propertyPrefix)_fontSize</fontSize.binding>
+
+        # - Color
+>$(my.indent)<fillColor.binding>Interface.$(my.propertyPrefix)_fillColor</fillColor.binding>
+
+    else
+        #
+        # TextStyle is not overridable OR we don't have text style
+        #
+        if (defined(my.item.sharedStyleId) & sharedTextStyleExists(my.appOrLibrary, my.item.sharedStyleId))
+            my.textStyle = getSharedTextStyle(my.appOrLibrary, my.item.sharedStyleId)?
+            if defined(my.textStyle)
+                if isSharedStyleOutOfSync(my.item)
+                    my.firstItem = my.item
+                    my.secondItem = my.textStyle
+                else
+                    my.firstItem = my.textStyle
+                    my.secondItem = my.textStyle
+                endif
+            else
+>$(my.indent)<!-- Can not set text style - text style ($(my.item.sharedStyleId)) not found -->
+                my.firstItem = my.item
+                my.secondItem = my.item
+            endif
+        else
+            my.firstItem = my.item
+            my.secondItem = my.item
+        endif
+
+        # - Text decorations
+>$(my.indent)<TextDecorations>
+>$(my.indent)$(my.subIndent)<underline>
+        if isUnderlinedFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>true</active>
+        else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>false</active>
+        endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineDefinition>
+ >$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<default/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</lineDefinition>
+>$(my.indent)$(my.subIndent)</underline>
+
+>$(my.indent)$(my.subIndent)<strikeThrough>
+        if isStrikedthroughFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>true</active>
+        else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>false</active>
+        endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineDefinition>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<default/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</lineDefinition>
+>$(my.indent)$(my.subIndent)</strikeThrough>
+>$(my.indent)</TextDecorations>
+
+        # - Text alignments
+        my.alignment = getTextAlignmentFromItems(my.firstItem, my.secondItem)
+>$(my.indent)<alignment>$(my.alignment)</alignment>
+>$(my.indent)<alignmentOffset>
+>$(my.indent)$(my.subIndent)<x>0</x>
+>$(my.indent)$(my.subIndent)<y>0</y>
+>$(my.indent)</alignmentOffset>
+
+        # - Font
+        my.fontFamilyResource = getFontFamilyResourceFromItems(my.firstItem, my.secondItem)
+>$(my.indent)<fontFamily>$(my.fontFamilyResource)</fontFamily>
+        if useB612FontFromItems(my.firstItem, my.secondItem)
+            # Special case: B612 fonts
+            # => <isBold> and <isItalic> are always false
+>$(my.indent)<isBold>false</isBold>
+>$(my.indent)<isItalic>false</isItalic>
+
+        else
+            # Generic case
+            if isBoldFromItems(my.firstItem, my.secondItem)
+>$(my.indent)<isBold>true</isBold>
+            else
+>$(my.indent)<isBold>false</isBold>
+            endif
+
+            if isItalicFromItems(my.firstItem, my.secondItem)
+>$(my.indent)<isItalic>true</isItalic>
+            else
+>$(my.indent)<isItalic>false</isItalic>
+            endif
+        endif
+
+>$(my.indent)<fontSize>
+        if hasLineHeightFromItems(my.firstItem, my.secondItem)
+            my.lineHeight = getLineHeightFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)<!-- VAPS does not yet? support lineHeight - the variant lineHeight is not a member of union A661P2_FontSizeType  -->
+>$(my.indent)$(my.subIndent)<!-- lineHeight = $(my.lineHeight) -->
+#>$(my.indent)$(my.subIndent)<lineHeight>$(my.lineHeight)</lineHeight>
+        endif
+        #else   
+            my.fontSize = getFontSizeFromItems(my.firstItem, my.secondItem)
+            my.pointSize = convertFontSize(my.fontSize)
+>$(my.indent)$(my.subIndent)<pointSize>$(my.pointSize)</pointSize>
+        #endif
+>$(my.indent)</fontSize>
+
+        # - Color
+        if hasTextColorFromItems(my.firstItem, my.secondItem)
+            my.textColor = getTextColorFromItems(my.firstItem, my.secondItem)
+            my.color = getColorValue(my.appOrLibrary, my.textColor)
+>$(my.indent)<fillColor.initExpr>$(my.color)</fillColor.initExpr>
+        endif
+    endif
+
+    # Step 2: fixed properties
+    # NB: transparent background
+>$(my.indent)<backgroundColor.initExpr>Resources.ColorPalette.StdWhite</backgroundColor.initExpr>
+>$(my.indent)<backgroundOpacity>0</backgroundOpacity>
+
+>$(my.indent)<marginPosition>inner</marginPosition>
+>$(my.indent)<margin>
+>$(my.indent)$(my.subIndent)<default/>
+>$(my.indent)</margin>
+
+>$(my.indent)<lineWrap>word</lineWrap>
+
+>$(my.indent)<wordSeparator>
+>$(my.indent)$(my.subIndent)<member>32</member>
+>$(my.indent)$(my.subIndent)<member>11</member>
+>$(my.indent)$(my.subIndent)<member>13</member>
+>$(my.indent)$(my.subIndent)<member>10</member>
+>$(my.indent)</wordSeparator>
+>$(my.indent)<wordSeparator.constraints>
+>$(my.indent)$(my.subIndent)<maxArraySize>4</maxArraySize>
+>$(my.indent)</wordSeparator.constraints>
+
+>$(my.indent)<lineSpacing>1</lineSpacing>
+
+>$(my.indent)<overflow>visible</overflow>
+endfunction renderTextStyleProperties
+
+
+function renderTextValue(appOrLibrary, item, level, isInLibrary)
+    my.value = getTextValue(my.item)?
+    if defined (my.value)
+        my.indent = getIndent(my.level)
+
+        if (my.isInLibrary & currentComponentHasStringValueOverrideForItem(my.item))
+            my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)<value.binding>Interface.$(my.propertyPrefix)_text</value.binding>
+>$(my.indent)<value.constraints>Interface.$(my.propertyPrefix)_text</value.constraints>
+        else
+            # Raw text value
+            my.textTransform = getTextTransform(my.appOrLibrary, my.item)
+            if (my.textTransform = "uppercase")
+>$(my.indent)<!-- Uppercase text -->
+                my.value = "$(my.value:UPPER)"
+            elsif (my.textTransform = "lowercase")
+>$(my.indent)<!-- Lowercase text -->
+                my.value = "$(my.value:lower)"
+            endif
+>$(my.indent)<value>$(my.value)</value>
+        endif
+    endif
+endfunction renderTextValue
+
+
+
+#############################################################################
+# Render overrides
+#
+#############################################################################
+
+function isComplexOverridePath(path)
+    return regexp.match("^(.+)\\.(.+)$", my.path)
+endfunction isComplexOverridePath
+
+
+function renderTextStyleOverrideWithInterfaces(path, propertyPrefix, interfacePrefix, level)
+    my.indent = getIndent(my.level)
+
+>$(my.indent)<!-- textStyle' override, path = $(my.path) -->
+    # - Text decorations
+>$(my.indent)<$(my.propertyPrefix)_underline.binding>Interface.$(my.interfacePrefix)_underline</$(my.propertyPrefix)_underline.binding>
+>$(my.indent)<$(my.propertyPrefix)_strikeThrough.binding>Interface.$(my.interfacePrefix)_strikeThrough</$(my.propertyPrefix)_strikeThrough.binding>
+
+    # - Text alignments
+>$(my.indent)<$(my.propertyPrefix)_alignment.binding>Interface.$(my.interfacePrefix)_alignment</$(my.propertyPrefix)_alignment.binding>
+
+    # - Font
+>$(my.indent)<$(my.propertyPrefix)_fontFamily.binding>Interface.$(my.interfacePrefix)_fontFamily</$(my.propertyPrefix)_fontFamily.binding>
+>$(my.indent)<$(my.propertyPrefix)_isBold.binding>Interface.$(my.interfacePrefix)_isBold</$(my.propertyPrefix)_isBold.binding>
+>$(my.indent)<$(my.propertyPrefix)_isItalic.binding>Interface.$(my.interfacePrefix)_isItalic</$(my.propertyPrefix)_isItalic.binding>
+>$(my.indent)<$(my.propertyPrefix)_fontSize.binding>Interface.$(my.interfacePrefix)_fontSize</$(my.propertyPrefix)_fontSize.binding>
+
+    # - Color
+>$(my.indent)<$(my.propertyPrefix)_fillColor.binding>Interface.$(my.interfacePrefix)_fillColor</$(my.propertyPrefix)_fillColor.binding>
+endfunction renderTextStyleOverrideWithInterfaces
+
+
+function renderTextStyleOverride(appOrLibrary, override, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    for my.override.textStyle
+        if first()
+            my.propertyPrefix = getInterfacePrefixFromPath(my.override.on)
+>$(my.indent)<!-- textStyle' override, path = $(my.override.on) -->
+            if (defined(textStyle.sharedStyleId) & sharedTextStyleExists(my.appOrLibrary, textStyle.sharedStyleId))
+                my.newTextStyle = getSharedTextStyle(my.appOrLibrary, textStyle.sharedStyleId)?
+                if defined(my.newTextStyle)
+                    if isSharedStyleOutOfSync(my.item)
+                        my.firstItem = textStyle
+                        my.secondItem = my.newTextStyle
+                    else
+                        my.firstItem = my.newTextStyle
+                        my.secondItem = my.newTextStyle
+                    endif
+                else
+>$(my.indent)<!-- Can not override text style - text style ($(textStyle.sharedStyleId)) not found, path=$(my.override.on) -->
+                    my.firstItem = textStyle
+                    my.secondItem = textStyle
+                endif
+            else
+                my.firstItem = textStyle
+                my.secondItem = textStyle
+            endif
+
+            # - Text decorations
+>$(my.indent)<$(my.propertyPrefix)_underline>
+            if isUnderlinedFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)<active>true</active>
+            else
+>$(my.indent)$(my.subIndent)<active>false</active>
+            endif
+>$(my.indent)</$(my.propertyPrefix)_underline>
+
+>$(my.indent)<$(my.propertyPrefix)_strikeThrough>
+            if isStrikedthroughFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)<active>true</active>
+            else
+>$(my.indent)$(my.subIndent)<active>false</active>
+            endif
+>$(my.indent)</$(my.propertyPrefix)_strikeThrough>
+
+            # - Text alignments
+            my.alignment = getTextAlignmentFromItems(my.firstItem, my.secondItem)
+>$(my.indent)<$(my.propertyPrefix)_alignment>$(my.alignment)</$(my.propertyPrefix)_alignment>
+
+            # - Font
+            my.fontFamilyResource = getFontFamilyResourceFromItems(my.firstItem, my.secondItem)
+            if useB612FontFromItems(my.firstItem, my.secondItem)
+                #
+                # Special case: B612 fonts
+                # => <isBold> and <isItalic> are always false
+                my.isBold = 0
+                my.isItalic = 0
+            else
+                my.isBold = isBoldFromItems(my.firstItem, my.secondItem)
+                my.isItalic = isItalicFromItems(my.firstItem, my.secondItem)
+            endif
+
+>$(my.indent)<$(my.propertyPrefix)_fontFamily>$(my.fontFamilyResource)</$(my.propertyPrefix)_fontFamily>
+
+            if my.isBold
+>$(my.indent)<$(my.propertyPrefix)_isBold>true</$(my.propertyPrefix)_isBold>
+            else
+>$(my.indent)<$(my.propertyPrefix)_isBold>false</$(my.propertyPrefix)_isBold>
+            endif
+
+            if my.isItalic
+>$(my.indent)<$(my.propertyPrefix)_isItalic>true</$(my.propertyPrefix)_isItalic>
+            else
+>$(my.indent)<$(my.propertyPrefix)_isItalic>false</$(my.propertyPrefix)_isItalic>
+            endif
+
+>$(my.indent)<$(my.propertyPrefix)_fontSize>
+            if hasLineHeightFromItems(my.firstItem, my.secondItem)
+                my.lineHeight = getLineHeightFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)<!-- VAPS does not yet? support lineHeight - the variant lineHeight is not a member of union A661P2_FontSizeType  -->
+>$(my.indent)$(my.subIndent)<!-- lineHeight = $(my.lineHeight) -->
+#>$(my.indent)$(my.subIndent)<lineHeight>$(my.lineHeight)</lineHeight>
+            endif
+            #else   
+                my.fontSize = getFontSizeFromItems(my.firstItem, my.secondItem)
+                my.pointSize = convertFontSize(my.fontSize)
+>$(my.indent)$(my.subIndent)<pointSize>$(my.pointSize)</pointSize>
+            #endif
+>$(my.indent)</$(my.propertyPrefix)_fontSize>
+
+            # - Color
+            if hasTextColorFromItems(my.firstItem, my.secondItem)
+                my.textColor = getTextColorFromItems(my.firstItem, my.secondItem)
+                my.color = getColorValue(my.appOrLibrary, my.textColor)
+>$(my.indent)<$(my.propertyPrefix)_fillColor.initExpr>$(my.color)</$(my.propertyPrefix)_fillColor.initExpr>
+            endif
+
+            last
+        endif
+    endfor
+endfunction renderTextStyleOverride
+
+
+function renderLayerStyleOverrideWithInterfaces(path, propertyPrefix, interfacePrefix, level)
+    my.indent = getIndent(my.level)
+    
+>$(my.indent)<!-- layerStyle' override, path = $(my.path) -->
+
+    # Opacity
+>$(my.indent)<$(my.propertyPrefix)_opacity.binding>Interface.$(my.interfacePrefix)_opacity</$(my.propertyPrefix)_opacity.binding>
+
+    # PaintStroke
+>$(my.indent)<$(my.propertyPrefix)_strokePaint.binding>Interface.$(my.interfacePrefix)_strokePaint</$(my.propertyPrefix)_strokePaint.binding>
+>$(my.indent)<$(my.propertyPrefix)_strokePattern.binding>Interface.$(my.interfacePrefix)_strokePattern</$(my.propertyPrefix)_strokePattern.binding>
+>$(my.indent)<$(my.propertyPrefix)_strokeStyle.binding>Interface.$(my.interfacePrefix)_strokeStyle</$(my.propertyPrefix)_strokeStyle.binding>
+
+    # PaintFill
+>$(my.indent)<$(my.propertyPrefix)_fillPaint.binding>Interface.$(my.interfacePrefix)_fillPaint</$(my.propertyPrefix)_fillPaint.binding>
+endfunction renderLayerStyleOverrideWithInterfaces
+
+
+function renderLayerStyleOverride(appOrLibrary, override, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+    my.propertyPrefix = getInterfacePrefixFromPath(my.override.on)
+
+    for my.override.layerStyle
+        if first()
+            
+>$(my.indent)<!-- layerStyle' override, path = $(my.override.on) -->
+
+            # Opacity
+            if defined(layerStyle.opacity)
+>$(my.indent)<$(my.propertyPrefix)_opacity.initExpr>$(layerStyle.opacity)</$(my.propertyPrefix)_opacity.initExpr>
+            else
+>$(my.indent)<$(my.propertyPrefix)_opacity.initExpr>1.0</$(my.propertyPrefix)_opacity.initExpr>
+            endif
+
+
+            #
+            # PaintStroke
+            #
+
+            # - strokePaint
+>$(my.indent)<$(my.propertyPrefix)_strokePaint>
+            my.borderIsSet = 0
+            my.borderCount = count(layerStyle.border)
+            my.borderWidth = 0
+
+            if my.borderCount
+                #NB: Parse list in reverse order (z-ordered list)
+                for layerStyle.border by (my.borderCount - item(border))
+                    if ((border.fillType = "Color") & border.enabled)
+                        my.borderIsSet = 1
+                        my.borderWidth = border.thickness
+                        my.borderColor = getColorValue(my.appOrLibrary, border.color)
+>$(my.indent)$(my.subIndent)<color.initExpr>$(my.borderColor)</color.initExpr>
+                        last
+                    endif
+                endfor
+            endif
+
+            if !my.borderIsSet
+>$(my.indent)$(my.subIndent)<none/>
+            endif
+
+>$(my.indent)</$(my.propertyPrefix)_strokePaint>
+
+            # - strokePattern
+>$(my.indent)<$(my.propertyPrefix)_strokePattern>
+>$(my.indent)$(my.subIndent)<solid/>
+>$(my.indent)</$(my.propertyPrefix)_strokePattern>
+
+            # - strokeStyle
+>$(my.indent)<$(my.propertyPrefix)_strokeStyle>
+>$(my.indent)$(my.subIndent)<width>$(my.borderWidth)</width>
+        my.lineCapValue = lineCap(layerStyle.lineEnd)
+>$(my.indent)$(my.subIndent)<lineCap>$(my.lineCapValue)</lineCap>
+        my.lineJoinValue = lineJoin(layerStyle.lineJoin)
+>$(my.indent)$(my.subIndent)<lineJoin>$(my.lineJoinValue)</lineJoin>
+>$(my.indent)$(my.subIndent)<miterLimit>4.0</miterLimit>
+        if defined(layerStyle.opacity)
+>$(my.indent)$(my.subIndent)<opacity>$(layerStyle.opacity)</opacity>
+        else
+>$(my.indent)$(my.subIndent)<opacity>1.0</opacity>
+        endif
+>$(my.indent)</$(my.propertyPrefix)_strokeStyle>
+
+
+            #
+            # PaintFill
+            #
+>$(my.indent)<$(my.propertyPrefix)_fillPaint>
+            my.fillIsSet = 0
+            my.fillCount = count(layerStyle.fill)
+            if my.fillCount    
+                #NB: Parse list in reverse order (z-ordered list)
+                for layerStyle.fill by (my.fillCount - item(fill))
+                    if ((fill.fillType = "Color") & fill.enabled)
+                        my.fillIsSet = 1
+                        my.fillColor = getColorValue(my.appOrLibrary, fill.color)
+>$(my.indent)$(my.subIndent)<color.initExpr>$(my.fillColor)</color.initExpr>
+                        last
+                    endif
+                endfor
+            endif
+
+            if !my.fillIsSet
+>$(my.indent)$(my.subIndent)<none/>
+            endif
+
+>$(my.indent)</$(my.propertyPrefix)_fillPaint>
+
+            last
+        endif
+    endfor
+endfunction renderLayerStyleOverride
+
+
+function renderCommentedOverride(appOrLibrary, item, override, level, isInLibrary)
+    my.indent = getIndent(my.level)
+>$(my.indent)<!-- Override nested in a symbol override is not supported - path = $(my.override.on) - type = $(my.override.property) -->
+    if (isSymbolOverride(my.override) & !overrideIsDefault(my.override))
+        if (string.length(my.override.newType) > 0)
+            if count(my.override.override)
+                renderCommentedOverrides(my.appOrLibrary, my.override, my.level + 1, my.isInLibrary)
+            endif
+        endif
+>
+    endif
+endfunction renderCommentedOverride
+
+
+function renderOverride(appOrLibrary, item, override, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+    my.propertyPrefix = getInterfacePrefixFromPath(my.override.on)
+    my.interfacePrefix = getInterfacePrefixFromPath("$(my.item.name:camel).$(my.override.on)")
+
+    if (isStringValueOverride(my.override))
+        if overrideIsEditable(my.override)
+>$(my.indent)<$(my.propertyPrefix)_text.binding>Interface.$(my.interfacePrefix)_text</$(my.propertyPrefix)_text.binding>
+>$(my.indent)<$(my.propertyPrefix)_text.constraints>Interface.$(my.interfacePrefix)_text</$(my.propertyPrefix)_text.constraints>
+>
+        else
+            # Check if we have a text style because it can transform our text (lowercase, uppercase)
+            my.textStyleOverride = getOverrideWithPathAndType(my.item, my.override.on, "textStyle")?
+            if defined (my.textStyleOverride)
+                if (!overrideIsDefault(my.override) | !overrideIsDefault(my.textStyleOverride))
+                    my.value = my.override.value
+                    my.textTransform = getTextTransformOverride(my.appOrLibrary, my.textStyleOverride)
+                    if (my.textTransform = "uppercase")
+>$(my.indent)<!-- Uppercase text -->
+                        my.value = "$(my.value:UPPER)"
+                    elsif (my.textTransform = "lowercase")
+>$(my.indent)<!-- Lowercase text -->
+                        my.value = "$(my.value:lower)"
+                    endif
+>$(my.indent)<$(my.propertyPrefix)_text>$(my.value)</$(my.propertyPrefix)_text>
+>
+                endif # Else: same text and same text style => nothing to do
+            elsif (!overrideIsDefault(my.override))
+>$(my.indent)<!-- Item does not use a text style - we do not know which textTransform (none, uppercase, lowercase) to apply -->
+>$(my.indent)<$(my.propertyPrefix)_text>$(my.override.value)</$(my.propertyPrefix)_text>
+>
+            endif
+        endif
+    elsif (isImageOverride(my.override))
+        if overrideIsEditable(my.override)
+>$(my.indent)<$(my.propertyPrefix)_source.binding>Interface.$(my.interfacePrefix)_source</$(my.propertyPrefix)_source.binding>
+>
+        elsif (!overrideIsDefault(my.override))
+            my.source = getImageSource(my.override.value)?
+            if defined(my.source)
+>$(my.indent)<$(my.propertyPrefix)_source>$(my.source)</$(my.propertyPrefix)_source>
+>
+            else
+>$(my.indent)<!-- Can not defined ImageReference override - image not found, source=$(my.override.value), path=$(my.override.on) -->
+>
+            endif
+        endif
+    elsif (isTextStyleOverride(my.override))
+        if overrideIsEditable(my.override)
+            renderTextStyleOverrideWithInterfaces(my.override.on, my.propertyPrefix, my.interfacePrefix, my.level)
+>
+        elsif (!overrideIsDefault(my.override))
+            renderTextStyleOverride(my.appOrLibrary, my.override, my.level, my.isInLibrary)
+>
+        endif
+    elsif (isLayerStyleOverride(my.override))
+        if overrideIsEditable(my.override)
+            renderLayerStyleOverrideWithInterfaces(my.override.on, my.propertyPrefix, my.interfacePrefix, my.level)
+>
+        elsif (!overrideIsDefault(my.override))
+            renderLayerStyleOverride(my.appOrLibrary, my.override, my.level)
+>
+        endif
+    elsif (isSymbolOverride(my.override) & !overrideIsDefault(my.override))
+        if (string.length(my.override.newType) > 0)
+>$(my.indent)<!-- Symbol override is not supported - path = $(override.on) - value = $(override.newType: Pascal) -->
+>
+            if count(my.override.override)
+                renderCommentedOverrides(my.appOrLibrary, my.override, my.level + 1, my.isInLibrary)
+            endif
+        endif
+    endif
+endfunction renderOverride
+
+
+function renderVisibleOverride(item, override, level)
+    my.indent = getIndent(my.level)
+    my.propertyPrefix = getInterfacePrefixFromPath(my.override.on)
+    my.interfacePrefix = getInterfacePrefixFromPath("$(my.item.name:camel).$(my.override.on)")
+
+>$(my.indent)<$(my.propertyPrefix)_visible.binding>Interface.$(my.interfacePrefix)_visible</$(my.propertyPrefix)_visible.binding>
+>
+endfunction renderVisibleOverride
+
+
+function renderCommentedOverrides(appOrLibrary, item, level, isInLibrary)
+    for my.item.override
+        renderCommentedOverride(my.appOrLibrary, my.item, override, my.level, my.isInLibrary)
+    endfor
+endfunction renderCommentedOverrides
+
+
+function renderOverrides(appOrLibrary, item, level, isInLibrary)
+    if count(my.item.override)
+        my.previousPath = ""
+>
+        for my.item.override by on
+            if !(my.previousPath = override.on)
+                my.previousPath = override.on
+                renderVisibleOverride(my.item, override, my.level)
+            endif
+            renderOverride(my.appOrLibrary, my.item, override, my.level, my.isInLibrary)
+        endfor
+    endif
+endfunction renderOverrides
+
+
+
+#############################################################################
+# Render items (i.e. layers)
+#
+#############################################################################
+
+
+function renderDefaultItem(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+
+>$(my.indent)<!-- TODO: render a $(my.item.type:Pascal) item -->
+    renderGroup(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+endfunction renderDefaultItem
+
+
+function _renderText(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<SimpleTextPrimitive id="$(my.id)" >
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+    renderReferenceBox(my.item, my.level + 1, my.parentIsRoot)
+    renderTextStyleProperties(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+    renderTextValue(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+>$(my.indent)</SimpleTextPrimitive>
+endfunction _renderText
+
+
+function renderText(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if hasTransformations(item)
+        my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+        _renderText(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+        renderTransformGroupPrimitive_end(my.level)
+    else
+        _renderText(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderText
+
+
+function _renderImage(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<ImagePrimitive id="$(my.id)" >
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+
+    # Fix reference box based on insets
+    if (defined (my.item.topInset) & !(my.item.topInset = 0))
+        my.item.y = my.item.y + my.item.topInset
+        my.item.height =  my.item.height - my.item.topInset  
+    endif
+    if (defined (my.item.bottomInset) & !(my.item.bottomInset = 0))
+        my.item.height = my.item.height - my.item.bottomInset   
+    endif
+    if (defined (my.item.leftInset) & !(my.item.leftInset = 0))
+        my.item.x = my.item.x + my.item.leftInset
+        my.item.width = my.item.width - my.item.leftInset
+    endif
+    if (defined (my.item.rightInset) & !(my.item.rightInset = 0))
+        my.item.width = my.item.width - my.item.rightInset
+    endif
+
+    renderReferenceBox(my.item, my.level + 1, my.parentIsRoot)
+
+    # Color
+    # NB: hack to color our image
+    if (my.isInLibrary & currentComponentHasLayerStyleOverrideForItem(my.item))
+        my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<color.binding>Interface.$(my.propertyPrefix)_fillPaint.color</color.binding>
+    endif
+
+    # Source
+    for my.item.export
+        if first()
+            if (my.isInLibrary & currentComponentHasImageOverrideForItem(my.item))
+                # Use our interface
+                my.propertyPrefix = getInterfacePrefix(my.item)
+>$(my.indent)$(my.subIndent)<source.binding>Interface.$(my.propertyPrefix)_source</source.binding>
+            else
+                my.source = getImageSource(export.file)?
+                if defined(my.source)
+>$(my.indent)$(my.subIndent)<source>$(my.source)</source>
+                else
+>$(my.indent)$(my.subIndent)<!-- Can not defined source - image not found, source=$(export.file) -->
+                endif
+            endif
+            last
+        endif
+    endfor
+
+    # Do not force uniform scaling
+>$(my.indent)$(my.subIndent)<aspectRatio>none</aspectRatio>
+    # Alignment has no effect when aspectRatio is none
+>$(my.indent)$(my.subIndent)<alignment>center</alignment>
+>$(my.indent)</ImagePrimitive>
+endfunction _renderImage
+
+
+function _renderImageWithTransformations(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+    _renderImage(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+    renderTransformGroupPrimitive_end(my.level)
+endfunction _renderImageWithTransformations
+
+
+function _renderImageAsClipMask(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    # Save geometry
+    my.x = my.item.x
+    my.y = my.item.y
+    my.width = my.item.width
+    my.height = my.item.height
+
+>$(my.indent)<!-- Image used as a clip mask -->
+>$(my.indent)<!-- Image itself -->
+    if hasTransformations(item)
+        _renderImageWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderImage(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+
+    # Restore geometry
+    my.item.x = my.x
+    my.item.y = my.y
+    my.item.width = my.width
+    my.item.height = my.height
+
+    # Clip
+    my.clipItemLevel = renderClippingContainerPrimitive_start(my.item, my.level)
+
+    # - Clip shape
+    my.clipRectId = getId("$(my.item.name:camel)__clipRect")
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<RectanglePrimitive id="$(my.clipRectId)" >
+    renderReferenceBox(my.item, my.clipItemLevel + 1, my.parentIsRoot)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<cornerRadius>0</cornerRadius>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</RectanglePrimitive>
+
+    # - Clipped items
+    renderClippingContainerPrimitive_end(my.appOrLibrary, item, my.level, my.isInLibrary, my.parentIsRoot)
+endfunction _renderImageAsClipMask
+
+
+function renderImage(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if (useAsMask(my.item) & count(my.item.item))
+        _renderImageAsClipMask(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    elsif hasTransformations(item)
+        _renderImageWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderImage(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderImage
+
+
+function _renderGroup(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<GroupPrimitive id="$(my.id)" >
+>$(my.indent)$(my.subIndent)<CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<enable>true</enable>
+>$(my.indent)$(my.subIndent)</CoreInteractive>
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+
+>$(my.indent)$(my.subIndent)<translateVector>
+    my.x = my.item.x
+    my.convertedY = convertY(my.item.y + my.item.height)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<x>$(my.x)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y>$(my.convertedY)</y>
+>$(my.indent)$(my.subIndent)</translateVector>
+
+>$(my.indent)$(my.subIndent)<ChildrenGroup>
+    renderItemChildren(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary, 0)
+>$(my.indent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)</GroupPrimitive>
+endfunction _renderGroup
+
+
+function renderGroup(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if hasTransformations(item)
+        my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+        _renderGroup(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+        renderTransformGroupPrimitive_end(my.level)
+    else
+        _renderGroup(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderGroup
+
+
+function _renderRectangle(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<RectanglePrimitive id="$(my.id)" >
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+    renderReferenceBox(my.item, my.level + 1, my.parentIsRoot)
+
+    renderPaintStroke(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+    renderPaintFill(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+
+    # Corner radius
+    for my.item.point
+        if first()
+>$(my.indent)$(my.subIndent)<cornerRadius>$(point.cornerRadius)</cornerRadius>
+            last
+        endif
+    endfor
+>$(my.indent)</RectanglePrimitive>
+endfunction _renderRectangle
+
+
+function _renderRectangleWithTransformations(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+    _renderRectangle(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+    renderTransformGroupPrimitive_end(my.level)
+endfunction _renderRectangleWithTransformations
+
+
+function _renderRectangleAsClipMask(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<!-- Rectangle used as a clip mask -->
+>$(my.indent)<!-- Rectangle itself -->
+    if hasTransformations(item)
+        _renderRectangleWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderRectangle(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+
+    # Clip
+    my.clipItemLevel = renderClippingContainerPrimitive_start(my.item, my.level)
+
+    # - Clip shape
+    my.clipRectId = getId("$(my.item.name:camel)__clipRect")
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<RectanglePrimitive id="$(my.clipRectId)" >
+    renderReferenceBox(my.item, my.clipItemLevel + 1, my.parentIsRoot)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<cornerRadius>0</cornerRadius>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</RectanglePrimitive>
+
+    # - Clipped items
+    renderClippingContainerPrimitive_end(my.appOrLibrary, item, my.level, my.isInLibrary, my.parentIsRoot)
+endfunction _renderRectangleAsClipMask
+
+
+function renderRectangle(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if (useAsMask(my.item) & count(my.item.item))
+        _renderRectangleAsClipMask(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    elsif hasTransformations(item)
+        _renderRectangleWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderRectangle(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderRectangle
+
+
+function _renderOval(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<EllipsePrimitive id="$(my.id)" >
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+    renderReferenceBox(my.item, my.level + 1, my.parentIsRoot)
+
+    renderPaintStroke(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+    renderPaintFill(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+>$(my.indent)</EllipsePrimitive>
+endfunction _renderOval
+
+
+function _renderOvalWithTransformations(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+    _renderOval(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+    renderTransformGroupPrimitive_end(my.level)
+endfunction _renderOvalWithTransformations
+
+
+function _renderOvalAsClipMask(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<!-- Oval used as a clip mask -->
+>$(my.indent)<!-- Oval itself -->
+    if hasTransformations(item)
+        _renderOvalWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderOval(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+
+    # Clip
+    my.clipItemLevel = renderClippingContainerPrimitive_start(my.item, my.level)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<EllipsePrimitive id="$(my.item.name:camel)__clipOval" >
+    renderReferenceBox(my.item, my.clipItemLevel + 1, my.parentIsRoot)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</EllipsePrimitive>
+
+    # - Clipped items
+    renderClippingContainerPrimitive_end(my.appOrLibrary, item, my.level, my.isInLibrary, my.parentIsRoot)
+endfunction _renderOvalAsClipMask
+
+
+function renderOval(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if (useAsMask(my.item) & count(my.item.item))
+        _renderOvalAsClipMask(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    elsif hasTransformations(item)
+        _renderOvalWithTransformations(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    else
+        _renderOval(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderOval
+
+
+function _renderLine(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    my.indent = getIndent(my.level)
+
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<LinePrimitive id="$(my.id)" >
+    renderCoreVisibility(my.item, my.level + 1, my.isInLibrary)
+
+    # NB: PaintStroke MUST be defined before <start> and <end>
+    # Otherwise, VAPS XT does not render lines correctly (PaintStroke is ignored)
+    renderPaintStroke(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+
+    my.x0 = my.item.x
+    my.x1 = my.item.x + my.item.width
+    my.y0 = convertY(my.item.y)
+    my.y1 = convertY(my.item.y + my.item.height)
+
+    for my.item.point
+        my.pointX = my.x0 + (my.x1 - my.x0) * point.x
+        my.pointY = my.y0 + (my.y1 - my.y0) * point.y
+
+        if (index() = 1)
+>$(my.indent)$(my.subIndent)<start>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<x>$(my.pointX)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y>$(my.pointY)</y>
+>$(my.indent)$(my.subIndent)</start>
+        elsif (index() = 2)
+>$(my.indent)$(my.subIndent)<end>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<x>$(my.pointX)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y>$(my.pointY)</y>
+>$(my.indent)$(my.subIndent)</end>
+        endif
+    endfor 
+
+>$(my.indent)</LinePrimitive>
+endfunction _renderLine
+
+
+function renderLine(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if hasTransformations(item)
+        my.itemLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+        _renderLine(my.appOrLibrary, my.item, my.itemLevel, my.isInLibrary, 0)
+        renderTransformGroupPrimitive_end(my.level)
+    else
+        _renderLine(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderLine
+
+
+function _renderSymbolInstance(appOrLibrary, item, level, isInLibrary, parentIsRoot, forcePositionToOrigin)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+    my.componentName = getComponentName("$(my.item.type:Pascal)")
+    my.componentXmlTag = "$(my.componentName)Component"
+
+    my.rawId = "$(my.item.name:camel)"
+    my.id = getId(my.rawId)
+    if !isValidId(my.rawId)
+>$(my.indent)<!-- ID $(my.rawId) is too long for VAPS XT, we use $(my.id) instead -->
+    endif
+>$(my.indent)<$(my.componentXmlTag) id="$(my.id)" >
+    renderCoreVisibility_SymbolInstance(my.item, my.level + 1, my.isInLibrary)
+    renderSymbolInstancePositionAndSize(my.item, my.level + 1, my.parentIsRoot, my.forcePositionToOrigin)
+    renderOverrides(my.appOrLibrary, my.item, my.level + 1, my.isInLibrary)
+>$(my.indent)</$(my.componentXmlTag)>
+endfunction _renderSymbolInstance
+
+
+function renderSymbolInstanceScaleGroup_start(item, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.positionGroupId = getId("$(my.item.name:camel)__position")
+>$(my.indent)<GroupPrimitive id="$(my.positionGroupId)" >
+>$(my.indent)$(my.subIndent)<CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<enable>true</enable>
+>$(my.indent)$(my.subIndent)</CoreInteractive>
+>$(my.indent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<visible>true</visible>
+>$(my.indent)$(my.subIndent)</CoreVisibility>
+  
+    # Set position
+>$(my.indent)$(my.subIndent)<translateVector>
+    my.x = my.item.x
+    my.convertedY = convertY(my.item.y + my.item.height)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<x>$(my.x)</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<y>$(my.convertedY)</y>
+>$(my.indent)$(my.subIndent)</translateVector>
+    # Reset position
+    my.item.x = 0
+    my.item.y = -my.item.height  #NB: to obtain 0, when we convert Y
+
+>$(my.indent)$(my.subIndent)<ChildrenGroup>
+    # Add a transfrom group to scale our symbol instance 
+    my.instanceWidth = my.item.width
+    my.instanceHeight = my.item.height
+    my.symbolWidth = my.item.symbolMasterWidth
+    my.symbolHeight = my.item.symbolMasterHeight
+    my.scaleX = 1.0
+    my.scaleY = 1.0
+    if (!(my.symbolWidth = 0) & !(my.symbolWidth = my.instanceWidth))
+        my.scaleX = my.instanceWidth/my.symbolWidth
+    endif
+    if (!(my.symbolHeight = 0) & !(my.symbolHeight = my.instanceHeight))
+        my.scaleY = my.instanceHeight/my.symbolHeight
+    endif
+   
+>$(my.indent)$(my.subIndent)$(my.subIndent)<!-- Transform group -->
+    my.scaleGroupId = getId("$(my.item.name:camel)__scale")
+>$(my.indent)$(my.subIndent)$(my.subIndent)<TransformGroupPrimitive id="$(my.scaleGroupId)">
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<visible>true</visible>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<enable>true</enable>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<transform>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<member>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<matrix>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<a>$(my.scaleX)</a>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<b>0.0</b>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<c>0.0</c>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<d>$(my.scaleY)</d>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<e>0.0</e>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<f>0.0</f>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</matrix>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</member>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</transform>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<transform.constraints>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<maxArraySize>1</maxArraySize>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</transform.constraints>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<ChildrenGroup>
+
+    return (my.level + 4)
+endfunction renderSymbolInstanceScaleGroup_start
+
+
+function renderSymbolInstanceScaleGroup_end(level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)</TransformGroupPrimitive>
+endfunction renderSymbolInstanceScaleGroup_end
+
+
+function _renderSymbolInstance_scaleIfNeeded(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if (!my.parentIsRoot & defined(my.item.symbolMasterWidth) & defined(my.item.symbolMasterHeight) & (!(my.item.width = my.item.symbolMasterWidth) | !(my.item.height = my.item.symbolMasterHeight)))
+        my.instanceLevel = renderSymbolInstanceScaleGroup_start(my.item, my.level)
+        _renderSymbolInstance(my.appOrLibrary, my.item, my.instanceLevel, my.isInLibrary, 0, 1)
+        renderSymbolInstanceScaleGroup_end(my.level)
+    else
+        _renderSymbolInstance(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot, 0)
+    endif
+endfunction _renderSymbolInstance_scaleIfNeeded
+
+
+function renderSymbolInstance(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if hasTransformations(item)
+        my.instanceLevel = renderTransformGroupPrimitive_start(my.item, my.level)
+        _renderSymbolInstance_scaleIfNeeded(my.appOrLibrary, my.item, my.instanceLevel, my.isInLibrary, 0)
+        renderTransformGroupPrimitive_end(my.level)
+    else
+        _renderSymbolInstance_scaleIfNeeded(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+    endif
+endfunction renderSymbolInstance
+
+
+function iterateOnItem(appOrLibrary, item, level, isInLibrary, parentIsRoot)
+    if defined (my.item.type)
+        if (isRectangle(my.item))
+            renderRectangle(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        elsif (isText(my.item))
+            renderText(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+         elsif (isImage(my.item))
+            renderImage(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        elsif (isGroup(my.item))
+            renderGroup(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        elsif (isOval(my.item))
+            renderOval(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        elsif (isLine(my.item))
+            renderLine(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        elsif isSymbolInstance(my.item)
+            renderSymbolInstance(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        else
+            # Default rendering for other types
+            renderDefaultItem(my.appOrLibrary, my.item, my.level, my.isInLibrary, my.parentIsRoot)
+        endif
+    endif
+endfunction iterateOnItem
+
+
+function renderItemChildrenInClip(appOrLibrary, parentItem, parentLevel, isInLibrary, parentIsRoot)
+    if count(my.parentItem.item)
+        #NB: we use the current value of parent height and not the one of our item
+        #    because clipped items are in the same group as their clip mask
+        my.parentHeight = global.sketch2arinc661_currentParentHeight
+
+        for my.parentItem.item
+            global.sketch2arinc661_currentParentHeight = my.parentHeight
+            iterateOnItem(my.appOrLibrary, item, my.parentLevel + 1, my.isInLibrary, my.parentIsRoot)
+            if !last()
+>
+         endif
+        endfor
+    endif
+endfunction renderItemChildrenInClip
+
+
+function renderItemChildren(appOrLibrary, parentItem, parentLevel, isInLibrary, parentIsRoot)
+    if count(my.parentItem.item)
+        my.parentHeight = my.parentItem.height
+
+        for my.parentItem.item
+            global.sketch2arinc661_currentParentHeight = my.parentHeight
+            iterateOnItem(my.appOrLibrary, item, my.parentLevel + 1, my.isInLibrary, my.parentIsRoot)
+            if !last()
+>
+         endif
+        endfor
+    endif
+endfunction renderItemChildren
+
+
+function renderBackground(appOrLibrary, item, level, isInLibrary)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+>$(my.indent)<!-- Background -->
+    my.backgroundId = getId("$(my.item.name:pascal)_background")
+>$(my.indent)<RectanglePrimitive id="$(my.backgroundId)">
+>$(my.indent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<visible>true</visible>
+>$(my.indent)$(my.subIndent)</CoreVisibility>
+
+>$(my.indent)$(my.subIndent)<ReferenceBox>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<refBox>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<position>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<bottomLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x>0</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y>0</y>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</bottomLeft>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</position>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<size>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width.binding>Interface.size.width</width.binding>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height.binding>Interface.size.height</height.binding>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)</size>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</refBox>
+>$(my.indent)$(my.subIndent)</ReferenceBox>
+    
+>$(my.indent)$(my.subIndent)<PaintStroke>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<strokePaint>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<none/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</strokePaint>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<strokePattern>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<solid/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</strokePattern>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<strokeStyle>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width>0</width>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<lineCap>butt</lineCap>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<lineJoin>round</lineJoin>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<miterLimit>0</miterLimit>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<opacity>1</opacity>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</strokeStyle>
+>$(my.indent)$(my.subIndent)</PaintStroke>
+>$(my.indent)$(my.subIndent)<PaintFill>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<fillPaint>
+    # Color
+     my.fillColor = getColorValue(my.appOrLibrary, my.item.backgroundColor)
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<color.initExpr>$(my.fillColor)</color.initExpr>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</fillPaint>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<fillOpacity>1</fillOpacity>
+>$(my.indent)$(my.subIndent)</PaintFill>
+>$(my.indent)$(my.subIndent)<cornerRadius>0</cornerRadius>
+>$(my.indent)</RectanglePrimitive>
+>
+endfunction renderBackground
+
+
+#############################################################################
+# Render components (symbol mastersà and screens (artboards)
+#
+#############################################################################
+
+function _renderItemImports(itemToTest)
+    if isSymbolInstance(my.itemToTest)
+        my.componentName = getComponentName("$(my.itemToTest.type: Pascal)")
+        new TEMP.import
+            define import.source = "$(my.componentName).xml"
+        endnew
+    else
+        for my.itemToTest.item
+            _renderItemImports(item)
+        endfor
+    endif
+endfunction _renderItemImports
+
+
+function renderComponentImports(appOrLibrary, component, level)
+    if count(my.component.item)
+        new TEMP
+
+        for my.component.item
+            _renderItemImports(item)
+        endfor
+
+        if count(TEMP.import)
+            my.indent = getIndent(my.level)
+            my.subIndent = getIndent(1)
+>$(my.indent)<Imports>
+            my.previousSource = ""
+            for TEMP.import by source
+                if !(import.source = my.previousSource)
+>$(my.indent)$(my.subIndent)<Import src="./$(import.source)" />
+                    my.previousSource = import.source
+                endif
+            endfor
+>$(my.indent)</Imports>
+        endif
+
+        endnew
+
+        # Clean-up
+        for TEMP
+            delete TEMP
+        endfor
+    endif
+endfunction renderComponentImports
+
+
+function getInterfacePrefix(item)
+    return getInputPropertyPrefix("$(my.item.name:camel)")
+endfunction getInterfacePrefix
+
+
+function getInterfacePrefixFromPath(path)
+    return getInputPropertyPrefixFromPath(my.path)
+endfunction getInterfacePrefixFromPath
+
+
+function generatePropertyInterfaceForLayerStyleOfImage(appOrLibrary, path, itemOrLayerStyle, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+    my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+>$(my.indent)<!-- $(my.path) - layerStyle' interface hack - only $(my.propertyPrefix)_fillPaint is useful -->
+
+    # Opacity
+>$(my.indent)<Opacity_inputProperty name="$(my.propertyPrefix)_opacity" mod="In">
+>$(my.indent)$(my.subIndent)<value>1.0</value>
+>$(my.indent)</Opacity_inputProperty>
+
+    # StrokePaint
+>$(my.indent)<StrokePaint_inputProperty name="$(my.propertyPrefix)_strokePaint" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<none/>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrokePaint_inputProperty>
+
+    # StrokePattern
+>$(my.indent)<StrokePattern_inputProperty name="$(my.propertyPrefix)_strokePattern" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<solid/>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrokePattern_inputProperty>
+
+    # StrokeStyle 
+>$(my.indent)<StrokeStyle_inputProperty name="$(my.propertyPrefix)_strokeStyle" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<width>0</width>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineCap>butt</lineCap>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineJoin>miter</lineJoin>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<miterLimit>4.0</miterLimit>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<opacity>0</opacity>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrokeStyle_inputProperty>
+
+    # FillPaint
+>$(my.indent)<FillPaint_inputProperty name="$(my.propertyPrefix)_fillPaint" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<color.initExpr>none</color.initExpr>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</FillPaint_inputProperty>
+
+endfunction generatePropertyInterfaceForLayerStyleOfImage
+
+
+function generatePropertyInterfaceForLayerStyle(appOrLibrary, path, itemOrLayerStyle, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+    my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+>$(my.indent)<!-- $(my.path) - layerStyle' interface -->
+
+    # Opacity
+>$(my.indent)<Opacity_inputProperty name="$(my.propertyPrefix)_opacity" mod="In">
+    if defined(my.itemOrLayerStyle.opacity)
+>$(my.indent)$(my.subIndent)<value>$(my.itemOrLayerStyle.opacity)</value>
+    else
+>$(my.indent)$(my.subIndent)<value>1.0</value>
+    endif
+>$(my.indent)</Opacity_inputProperty>
+
+    #
+    # Stroke
+    #
+    my.borderCount = count(my.itemOrLayerStyle.border)
+    my.borderIsSet = 0
+    my.borderWidth = 0
+    # - StrokePaint
+>$(my.indent)<StrokePaint_inputProperty name="$(my.propertyPrefix)_strokePaint" mod="In">
+    if my.borderCount
+        #NB: Parse list in reverse order (z-ordered list)
+        for my.itemOrLayerStyle.border by (my.borderCount - item(border))
+            if ((border.fillType = "Color") & border.enabled)
+                my.borderIsSet = 1
+                my.borderWidth = border.thickness
+                my.strokeColor = getColorValue(my.appOrLibrary, border.color)
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<color.initExpr>$(my.strokeColor)</color.initExpr>
+>$(my.indent)$(my.subIndent)</value>
+                last
+            endif
+        endfor
+    endif
+
+    if !my.borderIsSet
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<none/>
+>$(my.indent)$(my.subIndent)</value>
+    endif
+>$(my.indent)</StrokePaint_inputProperty>
+
+    # - StrokePattern
+>$(my.indent)<StrokePattern_inputProperty name="$(my.propertyPrefix)_strokePattern" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<solid/>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrokePattern_inputProperty>
+
+    # - StrokeStyle
+>$(my.indent)<StrokeStyle_inputProperty name="$(my.propertyPrefix)_strokeStyle" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<width>$(my.borderWidth)</width>
+    my.lineCapValue = lineCap(my.itemOrLayerStyle.lineEnd)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineCap>$(my.lineCapValue)</lineCap>
+    my.lineJoinValue = lineJoin(my.itemOrLayerStyle.lineJoin)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineJoin>$(my.lineJoinValue)</lineJoin>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<miterLimit>4.0</miterLimit>
+    if defined(my.itemOrLayerStyle.opacity)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<opacity>$(my.itemOrLayerStyle.opacity)</opacity>
+    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<opacity>1</opacity>
+    endif
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrokeStyle_inputProperty>
+    
+
+    #
+    # Fill
+    #
+>$(my.indent)<FillPaint_inputProperty name="$(my.propertyPrefix)_fillPaint" mod="In">
+    my.fillCount = count(my.itemOrLayerStyle.fill)
+    my.fillIsSet = 0
+    if my.fillCount
+        #NB: Parse list in reverse order (z-ordered list)
+        for my.itemOrLayerStyle.fill by (my.fillCount - item(fill))
+            if ((fill.fillType = "Color") & fill.enabled)
+                my.fillIsSet = 1
+                my.fillColor = getColorValue(my.appOrLibrary, fill.color)
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<color.initExpr>$(my.fillColor)</color.initExpr>
+>$(my.indent)$(my.subIndent)</value>
+                last
+            endif
+        endfor
+    endif
+
+    if !my.fillIsSet
+>$(my.indent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<none/>
+>$(my.indent)$(my.subIndent)</value>
+    endif
+>$(my.indent)</FillPaint_inputProperty>
+endfunction generatePropertyInterfaceForLayerStyle
+
+
+function generatePropertyInterfaceForLayerStyleFromOverride(appOrLibrary, path, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isLayerStyleOverride(my.override))
+        for my.override.layerStyle
+            if first()
+                generatePropertyInterfaceForLayerStyle(my.appOrLibrary, my.path, layerStyle, my.level)
+                last
+            endif
+        endfor
+    else
+>$(my.indent)<!-- Can not defined overridable layer style - override is not a layerStyle override, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForLayerStyleFromOverride
+
+
+function generatePropertyInterfaceForLayerStyleFromItem(appOrLibrary, path, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isRectangle(my.item) | isOval(my.item) | isLine(my.item))
+        generatePropertyInterfaceForLayerStyle(my.appOrLibrary, my.path, my.item, my.level)
+    elsif isImage(my.item)
+        #NB: image is included to allow to override the layer style of shapes rendered as images
+        generatePropertyInterfaceForLayerStyleOfImage(my.appOrLibrary, my.path, my.item, my.level)
+    else
+>$(my.indent)<!-- Can not defined overridable layer style - item is not a supported shape, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForLayerStyleFromItem
+
+
+function generatePropertyInterfaceForTextStyle(appOrLibrary, path, itemOrTextStyle, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    if (defined(my.itemOrTextStyle.sharedStyleId) & sharedTextStyleExists(my.appOrLibrary, my.itemOrTextStyle.sharedStyleId))
+        my.textStyle = getSharedTextStyle(my.appOrLibrary, my.itemOrTextStyle.sharedStyleId)?
+        if defined(my.textStyle)
+            if isSharedStyleOutOfSync(my.itemOrTextStyle)
+                my.firstItem = my.itemOrTextStyle
+                my.secondItem = my.textStyle
+            else
+                my.firstItem = my.textStyle
+                my.secondItem = my.textStyle
+            endif
+
+            my.subIndent = getIndent(1)
+            my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+>$(my.indent)<!-- $(my.path) - textStyle' interface -->
+
+            # - Text Decorations
+>$(my.indent)<Underline_inputProperty name="$(my.propertyPrefix)_underline" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+            if isUnderlinedFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>true</active>
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>false</active>
+            endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineDefinition>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<default/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</lineDefinition>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</Underline_inputProperty>
+
+>$(my.indent)<StrikeThrough_inputProperty name="$(my.propertyPrefix)_strikeThrough" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+            if isStrikedthroughFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>true</active>
+            else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<active>false</active>
+            endif
+>$(my.indent)$(my.subIndent)$(my.subIndent)<lineDefinition>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<default/>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</lineDefinition>
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</StrikeThrough_inputProperty>
+
+            # - Text alignments
+>$(my.indent)<TextAlignment_inputProperty name="$(my.propertyPrefix)_alignment" mod="In">
+            my.alignment = getTextAlignmentFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)<value>$(my.alignment)</value>
+>$(my.indent)</TextAlignment_inputProperty>
+
+            # - Font 
+            my.fontFamilyResource = getFontFamilyResourceFromItems(my.firstItem, my.secondItem)
+            if useB612FontFromItems(my.firstItem, my.secondItem)
+                #
+                # Special case: B612 fonts
+                # => <isBold> and <isItalic> are always false
+                my.isBold = 0
+                my.isItalic = 0
+            else
+                my.isBold = isBoldFromItems(my.firstItem, my.secondItem)
+                my.isItalic = isItalicFromItems(my.firstItem, my.secondItem)
+            endif
+
+>$(my.indent)<FontFamilyReference_inputProperty name="$(my.propertyPrefix)_fontFamily" mod="In">
+>$(my.indent)$(my.subIndent)<value>$(my.fontFamilyResource)</value>
+>$(my.indent)</FontFamilyReference_inputProperty>
+
+>$(my.indent)<Boolean_inputProperty name="$(my.propertyPrefix)_isBold" mod="In">
+            if my.isBold
+>$(my.indent)$(my.subIndent)<value>true</value>
+            else
+>$(my.indent)$(my.subIndent)<value>false</value>
+            endif
+>$(my.indent)</Boolean_inputProperty>
+
+>$(my.indent)<Boolean_inputProperty name="$(my.propertyPrefix)_isItalic" mod="In">
+            if my.isItalic
+>$(my.indent)$(my.subIndent)<value>true</value>
+            else
+>$(my.indent)$(my.subIndent)<value>false</value>
+            endif
+>$(my.indent)</Boolean_inputProperty>
+
+>$(my.indent)<FontSize_inputProperty name="$(my.propertyPrefix)_fontSize" mod="In">
+>$(my.indent)$(my.subIndent)<value>
+            if hasLineHeightFromItems(my.firstItem, my.secondItem)
+                my.lineHeight = getLineHeightFromItems(my.firstItem, my.secondItem)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<!-- VAPS does not yet? support lineHeight - the variant lineHeight is not a member of union A661P2_FontSizeType  -->
+>$(my.indent)$(my.subIndent)$(my.subIndent)<!-- lineHeight = $(my.lineHeight) -->
+#>$(my.indent)$(my.subIndent)$(my.subIndent)<lineHeight>$(my.lineHeight)</lineHeight>
+            endif
+            #else
+                my.fontSize = getFontSizeFromItems(my.firstItem, my.secondItem)
+                my.pointSize = convertFontSize(my.fontSize)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<pointSize>$(my.pointSize)</pointSize>
+            #endif
+>$(my.indent)$(my.subIndent)</value>
+>$(my.indent)</FontSize_inputProperty>
+
+            # - Color
+            if hasTextColorFromItems(my.firstItem, my.secondItem)
+                my.textColor = getTextColorFromItems(my.firstItem, my.secondItem)
+                my.color = getColorValue(my.appOrLibrary, my.textColor)
+>$(my.indent)<Color_inputProperty name="$(my.propertyPrefix)_fillColor" mod="In">
+>$(my.indent)$(my.subIndent)<value.initExpr>$(my.color)</value.initExpr>
+>$(my.indent)</Color_inputProperty>
+            endif
+        else
+>$(my.indent)<!-- Can not defined overridable text style - text style not found ($(my.itemOrTextStyle.sharedStyleId)), path=$(my.path) -->
+        endif
+    endif
+endfunction generatePropertyInterfaceForTextStyle
+
+
+function generatePropertyInterfaceForTextStyleFromOverride(appOrLibrary, path, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isTextStyleOverride(my.override))
+        for my.override.textStyle
+            if first()
+                generatePropertyInterfaceForTextStyle(my.appOrLibrary, my.path, textStyle, my.level)
+                last
+            endif
+        endfor
+    else
+>$(my.indent)<!-- Can not defined overridable text style - override is not a textStyle override, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForTextStyleFromOverride
+
+
+function generatePropertyInterfaceForTextStyleFromItem(appOrLibrary, path, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isText(my.item))
+        generatePropertyInterfaceForTextStyle(my.appOrLibrary, my.path, my.item, my.level)
+    else
+>$(my.indent)<!-- Can not defined overridable text style - item is not a text, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForTextStyleFromItem
+
+
+function generatePropertyInterfaceForStringValueFromOverride(appOrLibrary, item, path, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isStringValueOverride(my.override))
+        my.subIndent = getIndent(1)
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+>$(my.indent)<String_inputProperty name="$(my.propertyPrefix)_text" mod="In">
+        my.value = my.override.value
+
+        # Check if we have a text style because it can transform our text (lowercase, uppercase)
+        my.textStyleOverride = getOverrideWithPathAndType(my.item, my.override.on, "textStyle")?
+        if defined(my.textStyleOverride)
+            my.textTransform = getTextTransformOverride(my.appOrLibrary, my.textStyleOverride)
+            if (my.textTransform = "uppercase")
+>$(my.indent)$(my.subIndent)<!-- Uppercase text -->
+                my.value = "$(my.value:UPPER)"
+            elsif (my.textTransform = "lowercase")
+>$(my.indent)$(my.subIndent)<!-- Lowercase text -->
+                my.value = "$(my.value:lower)"
+            endif
+        else
+>$(my.indent)$(my.subIndent)<!-- Item does not use a text style - we do not know which textTransform (none, uppercase, lowercase) to apply -->
+        endif           
+
+>$(my.indent)$(my.subIndent)<value>$(my.value)</value>
+>$(my.indent)</String_inputProperty>
+    else
+>$(my.indent)<!-- Can not defined overridable string value - override is not a stringValue override, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForStringValueFromOverride
+
+
+function generatePropertyInterfaceForStringValueFromItem(appOrLibrary, path, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isText(my.item))
+        my.subIndent = getIndent(1)
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+>$(my.indent)<String_inputProperty name="$(my.propertyPrefix)_text" mod="In">
+        my.value = getTextValue(my.item)?
+        if defined(my.value)
+             my.textTransform = getTextTransform(my.appOrLibrary, my.item)
+            if (my.textTransform = "uppercase")
+>$(my.indent)$(my.subIndent)<!-- Uppercase text -->
+                my.value = "$(my.value:UPPER)"
+            elsif (my.textTransform = "lowercase")
+>$(my.indent)$(my.subIndent)<!-- Lowercase text -->
+                my.value = "$(my.value:lower)"
+            endif
+>$(my.indent)$(my.subIndent)<value>$(my.value)</value>
+        else
+>$(my.indent)$(my.subIndent)<value></value>
+        endif
+>$(my.indent)</String_inputProperty>
+    else
+>$(my.indent)<!-- Can not defined overridable string value - item is not a text, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForStringValueFromItem
+
+
+function generatePropertyInterfaceFromImageFromOverride(appOrLibrary, path, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isImageOverride(my.override))
+        my.subIndent = getIndent(1)
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+        
+        my.source = getImageSource(my.override.value)?
+        if defined(my.source)
+>$(my.indent)<ImageReference_inputProperty name="$(my.propertyPrefix)_source" mod="In">   
+>$(my.indent)$(my.subIndent)<value>$(my.source)</value>
+>$(my.indent)</ImageReference_inputProperty>
+        else
+>$(my.indent)<!-- Can not defined overridable ImageReference - image not found, source=$(export.file), path=$(my.path) -->
+        endif
+    else
+>$(my.indent)<!-- Can not defined overridable ImageReference - override is not an image override, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceFromImageFromOverride
+
+
+function generatePropertyInterfaceForImageFromItem(appOrLibrary, path, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isImage(my.item))
+        my.subIndent = getIndent(1)
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+
+        # source
+        for my.item.export
+            if first()
+                my.source = getImageSource(export.file)?
+                if defined(my.source)
+>$(my.indent)<ImageReference_inputProperty name="$(my.propertyPrefix)_source" mod="In">
+>$(my.indent)$(my.subIndent)<value>$(my.source)</value>
+>$(my.indent)</ImageReference_inputProperty>
+                else
+>$(my.indent)<!-- Can not defined overridable ImageReference - image not found, source=$(export.file), path=$(my.path) -->
+                endif
+                last
+            endif
+        endfor
+    else
+>$(my.indent)<!-- Can not defined overridable ImageReference - item is not an image, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForImageFromItem
+
+
+function generatePropertyInterfaceForSymbolIDFromOverride(appOrLibrary, path, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isSymbolOverride(my.override))
+        if (string.length(my.override.newType) > 0)
+>$(my.indent)<!-- SymbolID property can not be overriden in ARINC661 Part2, path=$(my.override.on), symbol=$(my.override.newType) -->
+        else
+>$(my.indent)<!-- SymbolID property can not be overriden in ARINC661 Part2, path=$(my.override.on), symbol=No symbol -->
+        endif
+    else
+>$(my.indent)<!-- Can not defined overridable symbolID value - override is not a symbolID override, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForSymbolIDFromOverride
+
+
+function generatePropertyInterfaceForSymbolIDFromItem(appOrLibrary, path, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isSymbolInstance(my.item))
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+        if (string.length(my.item.symbolMaster) > 0)
+>$(my.indent)<!-- SymbolID property can not be overriden in ARINC661 Part2, path=$(my.path), symbol=$(my.item.symbolMaster) -->
+        else
+>$(my.indent)<!-- SymbolID property can not be overriden in ARINC661 Part2, path=$(my.path), symbol=No symbol -->
+        endif
+    else
+>$(my.indent)<!-- Can not defined overridable symbol - item is not a symbol instance, path=$(my.path) -->
+    endif
+endfunction generatePropertyInterfaceForSymbolIDFromItem
+
+
+# prefix is optional
+function generateVisibleInterfaceFomOverride(override, level, path, prefix)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    if defined(my.prefix)
+        my.propertyPrefix = getInterfacePrefixFromPath("$(my.prefix).$(my.path)")
+    else
+        my.propertyPrefix = getInterfacePrefixFromPath(my.path)
+    endif
+
+>$(my.indent)<Boolean_inputProperty name="$(my.propertyPrefix)_visible" mod="In">
+    if (isSymbolOverride(my.override))
+        # Special case: symbol override
+        if (string.length(my.override.newType) > 0)
+>$(my.indent)$(my.subIndent)<value>true</value>
+        else
+            # No symbol => we hide our instance because we can not remove it
+>$(my.indent)$(my.subIndent)<!-- Special case: SymbolID override with no symbol, we assume that it means that our symbol instance is not visible -->
+>$(my.indent)$(my.subIndent)<value>false</value>
+        endif
+    else
+>$(my.indent)$(my.subIndent)<value>true</value>
+    endif
+>$(my.indent)</Boolean_inputProperty>
+>
+endfunction generateVisibleInterfaceFomOverride
+
+
+function generateVisibleInterfaceFomItem(item, level)
+    my.indent = getIndent(my.level)
+    my.subIndent = getIndent(1)
+
+    my.propertyPrefix = getInterfacePrefix(my.item)
+
+>$(my.indent)<Boolean_inputProperty name="$(my.propertyPrefix)_visible" mod="In">
+    if (defined(my.item.hidden) & my.item.hidden)
+>$(my.indent)$(my.subIndent)<value>false</value>
+    else
+        # Special case: symbol instance
+        if (isSymbolInstance(item))
+            if (string.length(my.item.symbolMaster) > 0)
+>$(my.indent)$(my.subIndent)<value>true</value>
+            else
+                # No symbol => we hide our instance because we can not remove it
+>$(my.indent)$(my.subIndent)<!-- Special case: SymbolID override with no symbol, we assume that it means that our symbol instance is not visible -->
+>$(my.indent)$(my.subIndent)<value>false</value>
+            endif
+        else
+>$(my.indent)$(my.subIndent)<value>true</value>
+        endif
+    endif
+>$(my.indent)</Boolean_inputProperty>
+>
+endfunction generateVisibleInterfaceFomItem
+
+
+function generatePropertyInterfaceFromOverride(appOrLibrary, item, overridable, override, level)
+    my.indent = getIndent(my.level)
+
+    if (isImageOverride(my.overridable))
+        generatePropertyInterfaceFromImageFromOverride(my.appOrLibrary, my.overridable.on, my.override, my.level)
+    elsif (isStringValueOverride(my.overridable))
+        generatePropertyInterfaceForStringValueFromOverride(my.appOrLibrary, my.item, my.overridable.on, my.override, my.level)
+    elsif (isTextStyleOverride(my.overridable))
+        generatePropertyInterfaceForTextStyleFromOverride(my.appOrLibrary, my.overridable.on, my.override, my.level)
+    elsif (isLayerStyleOverride(my.overridable))
+        generatePropertyInterfaceForLayerStyleFromOverride(my.appOrLibrary, my.overridable.on, my.override, my.level)
+    elsif (isSymbolOverride(my.overridable))
+        generatePropertyInterfaceForSymbolIDFromOverride(my.appOrLibrary, my.overridable.on, my.override, my.level)
+    else
+>$(my.indent)<!-- Overridable property with unsupported type $(my.overridable.property), path=$(my.overridable.on) -->
+    endif
+endfunction generatePropertyInterfaceFromOverride
+
+
+function symbolMaster_generatePropertyInterfaceFromItem(appOrLibrary, overridable, item, level)
+    my.indent = getIndent(my.level)
+
+    if (isImageOverride(my.overridable))
+        generatePropertyInterfaceForImageFromItem(my.appOrLibrary, my.overridable.on, my.item, my.level)
+    elsif (isStringValueOverride(my.overridable))
+        generatePropertyInterfaceForStringValueFromItem(my.appOrLibrary, my.overridable.on, my.item, my.level)
+    elsif (isTextStyleOverride(my.overridable))
+        generatePropertyInterfaceForTextStyleFromItem(my.appOrLibrary, my.overridable.on, my.item, my.level)
+    elsif (isLayerStyleOverride(my.overridable))
+        generatePropertyInterfaceForLayerStyleFromItem(my.appOrLibrary, my.overridable.on, my.item, my.level)
+    elsif (isSymbolOverride(my.overridable))
+        generatePropertyInterfaceForSymbolIDFromItem(my.appOrLibrary, my.overridable.on, my.item, my.level)
+    else
+>$(my.indent)<!-- Overridable property with unsupported type $(my.overridable.property), path=$(my.overridable.on) -->
+    endif
+endfunction symbolMaster_generatePropertyInterfaceFromItem
+
+
+function artboard_generatePropertyInterfaceFromItem(appOrLibrary, item, level)
+    if defined (my.item.type)
+        if isSymbolInstance(my.item)
+            generateVisibleInterfaceFomItem(my.item, my.level)
+
+            if count(my.item.override)
+                my.indent = getIndent(my.level)
+                my.subIndent = getIndent(1)
+                my.prefix = "$(my.item.name:camel)"
+                my.previousPath = ""
+
+                for my.item.override
+                    if !(my.previousPath = override.on)
+                        my.previousPath = override.on
+                        my.tempFullPath = "$(my.prefix).$(override.on)"
+                        my.tempFullPathCamel = "$(my.tempFullPath:camel)"
+                        if !isInputPropertyPrefixValid(my.tempFullPathCamel)
+                            my.usedPath = getInputPropertyPrefixFromPath(my.tempFullPath)
+>$(my.indent)<!-- Prefix $(my.tempFullPathCamel) is too long for VAPS XT, we use $(my.usedPath) instead -->
+                        endif
+                        generateVisibleInterfaceFomOverride(override, my.level, override.on, my.prefix)
+                    endif
+
+                    if overrideIsEditable(override)
+                        if (isImageOverride(override))
+                            generatePropertyInterfaceFromImageFromOverride(my.appOrLibrary, "$(my.prefix).$(override.on)", override, my.level)
+                        elsif (isStringValueOverride(override))
+                            generatePropertyInterfaceForStringValueFromOverride(my.appOrLibrary, my.item, "$(my.prefix).$(override.on)", override, my.level)
+                        elsif (isTextStyleOverride(override))
+                            generatePropertyInterfaceForTextStyleFromOverride(my.appOrLibrary, "$(my.prefix).$(override.on)", override, my.level)
+                        elsif (isLayerStyleOverride(override))
+                            generatePropertyInterfaceForLayerStyleFromOverride(my.appOrLibrary, "$(my.prefix).$(override.on)", override, my.level)
+                        elsif (isSymbolOverride(override))
+                            generatePropertyInterfaceForSymbolIDFromOverride(my.appOrLibrary, "$(my.prefix).$(override.on)", override, my.level)
+                        else
+>$(my.indent)<!-- Overridable property with unsupported type $(override.property), path=$(my.prefix).$(override.on) -->
+                        endif
+>
+                    endif
+                endfor
+            endif
+        endif
+    endif
+
+    artboard_renderChildrenPropertyInterface(my.appOrLibrary, my.item, my.level)
+endfunction artboard_generatePropertyInterfaceFromItem
+
+
+function artboard_renderChildrenPropertyInterface(appOrLibrary, parentItem, level)
+    if count(my.parentItem.item)
+        for my.parentItem.item
+            artboard_generatePropertyInterfaceFromItem(my.appOrLibrary, item, my.level)
+        endfor
+    endif
+endfunction artboard_renderChildrenPropertyInterface
+
+
+function renderComponentPropertiesFromArtboard(appOrLibrary, component, level)
+    artboard_renderChildrenPropertyInterface(my.appOrLibrary, my.component, my.level)
+endfunction renderComponentPropertiesFromArtboard
+
+
+function renderComponentPropertiesFromSymbolMaster(appOrLibrary, component, level)
+    my.indent = getIndent(my.level)
+    my.previousPath = ""
+
+    for my.component.overridable by on
+>
+        if regexp.match("^([^\\.]+)\\.(.+)$", overridable.on, leftPart, rightPart)
+            my.targetItem = getDescendantNamed(my.component, leftPart)?
+            if defined(my.targetItem)
+                if isSymbolInstance(my.targetItem)
+                    my.targetItemOverride = getOverrideWithPathAndType(my.targetItem, rightPart, overridable.property)?
+                    if defined(my.targetItemOverride)
+                        if !(my.previousPath = overridable.on)
+                            my.previousPath = overridable.on
+                            my.tempFullPathCamel = "$(my.previousPath:camel)"
+                            if !isInputPropertyPrefixValid(my.tempFullPathCamel)
+                                my.usedPath = getInputPropertyPrefixFromPath(my.previousPath)
+>$(my.indent)<!-- Prefix $(my.tempFullPathCamel) is too long for VAPS XT, we use $(my.usedPath) instead -->
+                            endif
+                            generateVisibleInterfaceFomOverride(my.targetItemOverride, my.level, overridable.on)
+                        endif
+
+                        generatePropertyInterfaceFromOverride(my.appOrLibrary, my.targetItem, overridable, my.targetItemOverride, my.level)
+                    else
+>$(my.indent)<!-- Can not defined overridable property - item can not override $(rightPart), type=$(overridable.property), path=$(overridable.on) -->
+                    endif
+                else
+>$(my.indent)<!-- Can not defined overridable property - item is not a symbol instance, type=$(overridable.property), path=$(overridable.on) -->
+                endif
+            else
+>$(my.indent)<!-- Can not defined overridable property - item not found, type=$(overridable.property), path=$(overridable.on) -->
+            endif
+        else
+            my.targetItem = getDescendantNamed(my.component, overridable.on)?
+            if defined(my.targetItem)
+                if !(my.previousPath = overridable.on)
+                    my.previousPath = overridable.on
+                    generateVisibleInterfaceFomItem(my.targetItem, my.level)
+                endif
+                symbolMaster_generatePropertyInterfaceFromItem(my.appOrLibrary, overridable, my.targetItem, my.level)
+            else
+>$(my.indent)<!-- Can not defined overridable property - item not found, type=$(overridable.property), path=$(overridable.on) -->
+            endif
+        endif
+    endfor
+endfunction renderComponentPropertiesFromSymbolMaster
+
+
+function renderARINC661Part2Component(appOrLibrary, component, componentName, isInLibrary, isScreen)
+    my.subIndent = getIndent(1)
+    my.indent = my.subIndent
+
+    my.rawComponentName = "$(my.componentName:Pascal)"
+    my.validComponentName = getComponentName(my.rawComponentName) 
+
+><?xml version="1.0" encoding="UTF-8"?>
+><!-- Generated by Circle on $(date) $(time) -->
+    if !isValidComponentName(my.rawComponentName)
+><!-- Component name $(my.rawComponentName) is too long for VAPS XT, we use $(my.validComponentName) instead -->
+    endif
+><componentDefn name="$(my.validComponentName)" 
+>               xmlns="http://www.aviation-ia.com/aeec/SupportFiles/661/Part2/componentScope.xsd/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+>               xsi:schemaLocation="http://www.aviation-ia.com/aeec/SupportFiles/661/Part2/componentScope.xsd/1 file:///C:/ARINC661_ShortcutToSchemaRoot/Generated/componentScope.xsd">
+
+    #
+    # Imports
+    #
+    renderComponentImports(my.appOrLibrary, my.component, 1)
+
+
+    #
+    # Interface
+    #
+>
+>$(my.indent)<Interface>
+    # - position of our component
+>$(my.indent)$(my.subIndent)<PositionXY_inputProperty name="position" mod="In">
+>$(my.indent)$(my.subIndent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<x>0</x>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<y>0</y>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</value>
+>$(my.indent)$(my.subIndent)</PositionXY_inputProperty>
+>
+    # - Size of our component
+>$(my.indent)$(my.subIndent)<SizeWH_inputProperty name="size" mod="In">
+>$(my.indent)$(my.subIndent)$(my.subIndent)<value>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<width>$(my.component.width)</width>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<height>$(my.component.height)</height>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</value>
+>$(my.indent)$(my.subIndent)</SizeWH_inputProperty>
+>
+    # - visible flag
+>$(my.indent)$(my.subIndent)<Boolean_inputProperty name="visible" mod="In">
+    if (defined(my.component.hidden) & my.component.hidden)
+>$(my.indent)$(my.subIndent)$(my.subIndent)<value>false</value>
+    else
+>$(my.indent)$(my.subIndent)$(my.subIndent)<value>true</value>
+    endif
+>$(my.indent)$(my.subIndent)</Boolean_inputProperty>
+>
+
+    # - enabled flag
+>$(my.indent)$(my.subIndent)<Boolean_inputProperty name="enabled" mod="In">
+>$(my.indent)$(my.subIndent)$(my.subIndent)<value>true</value>
+>$(my.indent)$(my.subIndent)</Boolean_inputProperty>
+>
+
+   # - Overridable properties of its children
+   if (my.isScreen)
+      renderComponentPropertiesFromArtboard(my.appOrLibrary, my.component, 2)
+    else
+      renderComponentPropertiesFromSymbolMaster(my.appOrLibrary, my.component, 2)
+    endif
+>$(my.indent)</Interface>
+
+
+    #
+    # Local
+    #
+>
+>$(my.indent)<Local/>
+
+    #
+    # Tree
+    #
+>
+    if count(my.component.item)
+>$(my.indent)<Tree>
+>$(my.indent)$(my.subIndent)<GroupPrimitive id="TranslateFromInterfacePositionPropertyGroup">
+>$(my.indent)$(my.subIndent)$(my.subIndent)<CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<visible.binding>Interface.visible</visible.binding>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</CoreVisibility>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)$(my.subIndent)<enable.binding>Interface.enabled</enable.binding>
+>$(my.indent)$(my.subIndent)$(my.subIndent)</CoreInteractive>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<translateVector.binding>Interface.position</translateVector.binding>
+>$(my.indent)$(my.subIndent)$(my.subIndent)<ChildrenGroup>
+        if (defined(my.component.hasBackground) & my.component.hasBackground)
+            renderBackground(my.appOrLibrary, my.component, 4, my.isInLibrary)
+        endif
+        renderItemChildren(my.appOrLibrary, my.component, 3, my.isInLibrary, 1)
+>$(my.indent)$(my.subIndent)$(my.subIndent)</ChildrenGroup>
+>$(my.indent)$(my.subIndent)</GroupPrimitive>
+>$(my.indent)</Tree>
+    else
+>$(my.indent)<Tree/>
+    endif
+
+    #
+    # Behavior
+    #
+
+>$(my.indent)<Behavior>
+>$(my.indent)$(my.subIndent)<OutputBindings/>
+>$(my.indent)</Behavior>
+
+
+    #
+    # Resources
+    #
+
+
+></componentDefn>
+endfunction renderARINC661Part2Component
+
+
+function renderComponent(appOrLibrary, component, isInLibrary)
+    global.sketch2arinc661_currentComponent = my.component
+    renderARINC661Part2Component(my.appOrLibrary, my.component, my.component.type, my.isInLibrary, 0)
+endfunction renderComponent
+
+
+function renderScreen(appOrLibrary, screen, isInLibrary)
+    renderARINC661Part2Component(my.appOrLibrary, my.screen, my.screen.name, my.isInLibrary, 1)
+endfunction renderScreen
+
+
+.endtemplate

@@ -1,0 +1,348 @@
+.# > name="0- Ingescape Circle Extension"
+.# > keyword="C++"
+.# > description="To add a new extension to Ingescape Circle."
+.# > agentMode="NONE"
+.# > packageMode="NONE"
+.# > graphicMode="NONE"
+
+.template 0
+
+
+#FIXME: understand how codegen launches each script
+for projects. as project
+    global.project_name = project.name
+    global.project_contributor = project.author 
+    global.project_copyright = project.copyright
+endfor
+
+
+#
+# Init 
+#
+echo "Creating directories structure ..."
+directory.create("qml")
+directory.create("qml/$(global.project_name:Pascal)")
+
+
+.endtemplate
+.template 1
+.############################################
+.# CMake file
+.echo "Generating CMakeLists.txt"
+.output "CMakeLists.txt"
+set($(global.project_name)Target "$(global.project_name:Pascal)")
+
+add_library(${$(global.project_name)Target} SHARED
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)_plugin.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)module.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower).qrc
+    )
+
+setup_plugin_target(${$(global.project_name)Target})
+.###########################################
+.# QMake file
+.echo "Generating $(global.project_name:Pascal).pro"
+.output "$(global.project_name:Pascal).pro"
+TEMPLATE = lib
+TARGET = $(global.project_name:Pascal)
+
+QT += qml quick
+
+CONFIG += plugin c++17
+
+SOURCES += \\
+        $(global.project_name:lower)_plugin.cpp \\
+        $(global.project_name:lower)module.cpp 
+
+
+HEADERS += \\
+        $(global.project_name:lower)_plugin.h \\
+        $(global.project_name:lower)module.h
+
+
+OTHER_FILES += \\
+        $(global.project_name:lower)_plugin.json \\
+        CMakeLists.txt
+
+
+RESOURCES += \\
+    $(global.project_name:lower).qrc
+
+
+QML_IMPORT_PATH += $$PWD/qml
+
+
+!include(../pluginsCommonRules.pri) {
+    error(Could not load pluginsCommonRules.pri)
+}
+.###########################################
+.# Plugin header file
+.echo "Generating $(global.project_name:lower)_plugin.h"
+.output "$(global.project_name:lower)_plugin.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+
+#ifndef $(global.project_name:UPPER)_PLUGIN_H
+#define $(global.project_name:UPPER)_PLUGIN_H
+
+#include "plugins/circlemoduleplugin.h"
+
+
+class $(global.project_name:Pascal)Plugin : public CircleModulePlugin
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID IID_CircleModulePluginInterface FILE "$(global.project_name:lower)_plugin.json")
+
+public:
+    explicit $(global.project_name:Pascal)Plugin(QObject *parent = nullptr);
+
+    QString uuid() const override;
+    CircleModule* createCircleModule() override;
+
+protected:
+    void _registerQmlTypes();
+};
+
+#endif // $(global.project_name:UPPER)_PLUGIN_H
+.###########################################
+.# Plugin source file
+.echo "Generating $(global.project_name:lower)_plugin.cpp"
+.output "$(global.project_name:lower)_plugin.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(global.project_contributor)
+ *
+ */
+
+#include "$(global.project_name:lower)_plugin.h"
+
+#include <QDebug>
+
+#ifdef QT_DEBUG
+#include "base/I2QmlHotReloader.h"
+#endif
+
+#include "$(global.project_name:lower)module.h"
+
+
+$(global.project_name:Pascal)Plugin::$(global.project_name:Pascal)Plugin(QObject* parent)
+    : CircleModulePlugin(parent)
+{
+    //TODO: change properties
+    setallowsMultipleInstances(false);
+    setmodulesMenuLabel(tr("$(global.project_name:Pascal)"));
+    setmodulesMenuIcon(QUrl("image://circlefont/iconUnknown"));
+    setprotectedByLicense(false);
+
+    setqmlItemUrl(QUrl("qrc:/qml/$(global.project_name:Pascal)/Main.qml"));
+
+    // Register extra QML types
+    _registerQmlTypes();
+}
+
+
+QString $(global.project_name:Pascal)Plugin::uuid() const
+{
+    //TODO: generate a unique UUID
+    return "com.ingescape.circle.modules.$(global.project_name:lower)";
+}
+
+
+CircleModule* $(global.project_name:Pascal)Plugin::createCircleModule() 
+{
+    return new $(global.project_name:Pascal)Module();
+}
+
+
+void $(global.project_name:Pascal)Plugin::_registerQmlTypes()
+{
+    //TODO: register C++ classes 
+    qmlRegisterUncreatableType<$(global.project_name:Pascal)Module>("$(global.project_name:Pascal)", 1, 0, "$(global.project_name:Pascal)Module", "Internal class");
+
+#ifdef QT_DEBUG
+    auto pluginDir = QFileInfo(QFINDTESTDATA(__FILE__)).absoluteDir();
+
+    I2QmlHotReloader::instance().addRootDirPath(pluginDir.absolutePath());
+    I2QmlHotReloader::instance().watchDirPath(pluginDir.filePath("qml"));
+#endif
+}
+.###########################################
+.# Module header file
+.echo "Generating $(global.project_name:lower)module.h"
+.output "$(global.project_name:lower)module.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+
+#ifndef $(global.project_name:UPPER)MODULE_H
+#define $(global.project_name:UPPER)MODULE_H
+
+#include <QObject>
+#include <QtGlobal>
+
+#include "plugins/circlemodule.h"
+
+
+class $(global.project_name:Pascal)Module : public CircleModule
+{
+    Q_OBJECT
+
+public:
+    explicit $(global.project_name:Pascal)Module(QObject* parent = nullptr);
+    virtual ~$(global.project_name:Pascal)Module() override;
+};
+
+QML_DECLARE_TYPE($(global.project_name:Pascal)Module)
+
+#endif // $(global.project_name:UPPER)MODULE_H
+.###########################################
+.# Module source file
+.echo "Generating $(global.project_name:lower)module.cpp"
+.output "$(global.project_name:lower)module.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(global.project_contributor)
+ *
+ */
+
+#include "$(global.project_name:lower)module.h"
+
+#include <QDebug>
+
+
+$(global.project_name:Pascal)Module::$(global.project_name:Pascal)Module(QObject* parent)
+    : CircleModule(parent)
+{
+    //TODO
+}
+
+
+$(global.project_name:Pascal)Module::~$(global.project_name:Pascal)Module() = default;
+
+.###########################################
+.# Plugin Json file
+.echo "Generating $(global.project_name:lower)_plugin.json"
+.output "$(global.project_name:lower)_plugin.json"
+{
+  "name": "$(global.project_name:Pascal)",
+  "version": "0.0.0",
+  "description": "TODO",
+  "copyright": "$(global.project_copyright)"
+}
+.###########################################
+.# QRC file
+.echo "Generating $(global.project_name:lower).qrc"
+.output "$(global.project_name:lower).qrc"
+<RCC>
+    <qresource prefix="/">
+        <file>qml/$(global.project_name:Pascal)/Main.qml</file>
+    </qresource>
+</RCC>
+.###########################################
+.# Main QML file
+.echo "Generating qml/$(global.project_name:Pascal)/Main.qml"
+.output "qml/$(global.project_name:Pascal)/Main.qml"
+import QtQuick
+import QtQuick.Window
+
+import IngescapeCircle
+import IngescapeCircle.UI
+
+import I2Quick
+import I2Quick.Controls
+
+import $(global.project_name:Pascal)
+
+
+CircleModuleItem {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+    windowTitle: qsTr("$(global.project_name:Pascal)")
+
+    windowMinimumWidth: 320
+    windowMinimumHeight: 240
+    windowWidth: 800
+    windowHeight: 600
+
+    windowColor: "white"
+
+
+    //----------------------------------
+    //
+    // Methods
+    //
+    //----------------------------------
+
+
+
+
+    //----------------------------------
+    //
+    // Behaviors
+    //
+    //----------------------------------
+
+    Window.onWindowChanged: {
+        if (root.Window.window && ApplicationUtils.isDebug)
+            root.Window.window.I2QuickDebug.visualizationMode = Qt.binding(() => { return Circle.debugVisualizationMode; });
+    }
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    Text {
+        anchors.centerIn: parent
+
+        text: qsTr("$(global.project_name:Pascal)")
+    }
+}
+.endtemplate

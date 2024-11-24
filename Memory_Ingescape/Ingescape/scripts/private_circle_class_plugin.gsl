@@ -1,0 +1,1089 @@
+.# > name="0- Ingescape Circle CLASS plugin"
+.# > keyword="C++"
+.# > description="To add a new Class to the library."
+.# > agentMode="NONE"
+.# > packageMode="NONE"
+.# > graphicMode="NONE"
+
+.template 0
+
+#FIXME: understand how codegen launches each script
+for projects. as project
+    global.project_name = project.name
+    global.project_contributor = project.author
+    global.project_copyright = project.copyright
+endfor
+
+#
+# Init
+#
+echo "Creating directories structure ..."
+directory.create("qml")
+directory.create("qml/$(global.project_name:Pascal)")
+directory.create("qml/$(global.project_name:Pascal)/Blocks")
+directory.create("qml/$(global.project_name:Pascal)/Overlays")
+directory.create("qml/$(global.project_name:Pascal)/Sections")
+directory.create("resources")
+directory.create("resources/$(global.project_name:Pascal)")
+directory.create("undoredo")
+
+.endtemplate
+.template 1
+.############################################
+.# CMake file
+.echo "Generating CMakeLists.txt"
+.output "CMakeLists.txt"
+set($(global.project_name)Target "$(global.project_name:Pascal)")
+
+add_library(${$(global.project_name)Target} SHARED
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)_plugin.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)_plugin.h
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower).cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower).h
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)io.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower)io.h
+    ${CMAKE_CURRENT_LIST_DIR}/$(global.project_name:lower).qrc
+    )
+
+setup_plugin_target(${$(global.project_name)Target})
+
+.###########################################
+.# QMake file
+.echo "Generating $(global.project_name:Pascal).pro"
+.output "$(global.project_name:Pascal).pro"
+TEMPLATE = lib
+TARGET = $(global.project_name:Pascal)
+
+QT += qml quick
+
+CONFIG += plugin c++17
+
+SOURCES += \\
+        $(global.project_name:lower)_plugin.cpp \\
+        $(global.project_name:lower).cpp \\
+        $(global.project_name:lower)io.cpp
+
+
+HEADERS += \\
+        $(global.project_name:lower)_plugin.h \\
+        $(global.project_name:lower).h \\
+        $(global.project_name:lower)io.h
+
+
+OTHER_FILES += \\
+        $(global.project_name:lower)_plugin.json \\
+        CMakeLists.txt
+
+
+RESOURCES += \\
+    $(global.project_name:lower).qrc
+
+
+QML_IMPORT_PATH += $$PWD/qml
+
+
+!include(../../pluginsCommonRules.pri) {
+    error(Could not load pluginsCommonRules.pri)
+}
+
+.###########################################
+.# Plugin header file
+.echo "Generating $(global.project_name:lower)_plugin.h"
+.output "$(global.project_name:lower)_plugin.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+
+#ifndef $(global.project_name:UPPER)_PLUGIN_H
+#define $(global.project_name:UPPER)_PLUGIN_H
+
+#include "plugins/circleclassplugin.h"
+
+
+class Q_DECL_EXPORT $(global.project_name:Pascal)Plugin : public CircleClassPlugin
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID IID_CircleClassPluginInterface FILE "$(global.project_name:lower)_plugin.json")
+
+public:
+    explicit $(global.project_name:Pascal)Plugin(QObject *parent = nullptr);
+
+    QString uuid() const override;
+    QString name() const override;
+    QUrl getClassViewItemUrl() const override;
+    [[nodiscard]] Class* createClass(const QString& uuid) const override;
+
+protected:
+    void _registerQmlTypes();
+};
+
+#endif // $(global.project_name:UPPER)_PLUGIN_H
+
+.###########################################
+.# Plugin source file
+.echo "Generating $(global.project_name:lower)_plugin.cpp"
+.output "$(global.project_name:lower)_plugin.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(global.project_contributor)
+ *
+ */
+
+#include "$(global.project_name:lower)_plugin.h"
+
+#include <QDebug>
+
+#ifdef QT_DEBUG
+#include "base/I2QmlHotReloader.h"
+#endif
+
+#include "$(global.project_name:lower).h"
+
+
+$(global.project_name:Pascal)Plugin::$(global.project_name:Pascal)Plugin(QObject* parent)
+    : CircleClassPlugin(parent)
+{
+    // Register extra QML types
+    _registerQmlTypes();
+}
+
+
+QString $(global.project_name:Pascal)Plugin::uuid() const
+{
+    return $(global.project_name:Pascal)::$(global.project_name:Pascal)_UUID;
+}
+
+
+QString $(global.project_name:Pascal)Plugin::name() const
+{
+    return tr("$(global.project_name)");
+}
+
+
+QUrl $(global.project_name:Pascal)Plugin::getClassViewItemUrl() const
+{
+    return {"qrc:/qml/$(global.project_name:Pascal)/$(global.project_name:Pascal)ViewItem.qml"};
+}
+
+
+Class* $(global.project_name:Pascal)Plugin::createClass(const QString& uuid) const
+{
+    auto newClass = new $(global.project_name:Pascal)(uuid);
+    Q_ASSERT(newClass);
+    return newClass;
+}
+
+
+void $(global.project_name:Pascal)Plugin::_registerQmlTypes()
+{
+    //TODO: register C++ classes
+    qmlRegisterUncreatableType<$(global.project_name:Pascal)>("Circle.Class.$(global.project_name:Pascal)", 1, 0, "$(global.project_name:Pascal)", "Internal class");
+    qmlRegisterUncreatableType<$(global.project_name:Pascal)IO>("Circle.Class.$(global.project_name:Pascal)", 1, 0, "$(global.project_name:Pascal)IO", "Internal class");
+
+
+#ifdef QT_DEBUG
+    auto pluginDir = QFileInfo(QFINDTESTDATA(__FILE__)).absoluteDir();
+
+    I2QmlHotReloader::instance().addRootDirPath(pluginDir.absolutePath());
+    I2QmlHotReloader::instance().watchDirPath(pluginDir.filePath("qml"));
+#endif
+}
+
+.###########################################
+.# Class header file
+.echo "Generating $(global.project_name:lower).h"
+.output "$(global.project_name:lower).h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+
+#ifndef $(global.project_name:UPPER)_H
+#define $(global.project_name:UPPER)_H
+
+#include "document/system/class.h"
+#include "document/system/classsection.h"
+#include "$(global.project_name:lower)io.h"
+
+
+class Q_DECL_EXPORT $(global.project_name:Pascal) : public Class
+{
+    Q_OBJECT
+
+    I2_QML_QOBJECT_LIST_PROPERTY(IO, inputs)
+
+public:
+    explicit $(global.project_name:Pascal)(const QString& uuid, QObject* parent = nullptr);
+    virtual ~$(global.project_name:Pascal)() override;
+
+    static const QString $(global.project_name:Pascal)_UUID;
+
+    QList<ClassSection*> getSections() override;
+    QUrl getSectionBlockUrl(ClassSectionBlock *block) const override;
+
+    QList<IO*> getInputs() override;
+
+    IO* getIO(IOType::Value type, const QString& name) override;
+
+    qsizetype getIOIndex(IO *io) override;
+    IO* createIO(IOType::Value type, const QString& name, IOValueType::Value valueType, qsizetype indexInList = 0) override;
+    void removeIO(IOType::Value ioType, const QString& ioName) override;
+    void loadIOFromJson(IOType::Value ioType, const QJsonObject& jsonIO, qsizetype index = -1) override;
+
+    void updateIOName(const IOType::Value ioType, const QString& oldName, const QString& newName) override;
+
+protected:
+    QJsonObject _customExportToJson() const override;
+    void _customInitFromJson(const QJsonObject& json) override;
+
+private:
+    void _clear();
+
+private:
+    QHash<QString, $(global.project_name:Pascal)IO*> _inputsHash;
+};
+
+QML_DECLARE_TYPE($(global.project_name:Pascal))
+
+#endif // $(global.project_name:UPPER)_H
+.###########################################
+.# Class source file
+.echo "Generating $(global.project_name:lower).cpp"
+.output "$(global.project_name:lower).cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(global.project_contributor)
+ *
+ */
+
+#include "$(global.project_name:lower).h"
+
+
+//TODO This is an example key. It can be renamed. More may have to be added.
+const QString JSON_KEY_INPUTS {"in"};
+
+//TODO: generate a unique UUID
+const QString $(global.project_name:Pascal)::$(global.project_name:Pascal)_UUID = "com.ingescape.circle.classes.$(global.project_name:lower)";
+
+$(global.project_name:Pascal)::$(global.project_name:Pascal)(const QString& uuid, QObject* parent)
+    : Class($(global.project_name:Pascal)_UUID, uuid, parent)
+{
+}
+
+
+$(global.project_name:Pascal)::~$(global.project_name:Pascal)() = default;
+
+
+QList<ClassSection*> $(global.project_name:Pascal)::getSections()
+{
+    auto sections = Class::getSections();
+
+    auto inputsSection = new ClassListSection(JSON_KEY_INPUTS, this, &_inputs);
+    Q_ASSERT(inputsSection);
+    inputsSection->settitle(tr("IN"));
+    sections.append(inputsSection);
+
+    //TODO Add other sections if necessary
+
+    return sections;
+}
+
+QUrl $(global.project_name:Pascal)::getSectionBlockUrl(ClassSectionBlock *block) const
+{
+    //TODO Other custom blocks go here
+    if (qobject_cast<IO*>(block))
+        return QUrl("qrc:/qml/$(global.project_name:Pascal)/Blocks/SampleIOBlock.qml");
+    else
+        return Class::getSectionBlockUrl(block);
+}
+
+
+QList<IO *> $(global.project_name:Pascal)::getInputs()
+{
+    return _inputs.toList();
+}
+
+
+IO *$(global.project_name:Pascal)::getIO(IOType::Value type, const QString &name)
+{
+    if (!name.isEmpty())
+    {
+        switch(type)
+        {
+        case IOType::INPUT:
+            return _inputsHash.value(name, nullptr);
+
+        //TODO Other IO types if necessary
+
+        default:
+            break;
+        }
+    }
+
+    return nullptr;
+}
+
+
+qsizetype $(global.project_name:Pascal)::getIOIndex(IO *io)
+{
+    Q_ASSERT(io);
+    switch(io->type())
+    {
+    case IOType::INPUT:
+        return _inputs.indexOf(io);
+
+    //TODO Other IO types if necessary
+
+    default:
+        break;
+    }
+
+    return -1;
+}
+
+
+IO *$(global.project_name:Pascal)::createIO(IOType::Value type, const QString &name, IOValueType::Value valueType, qsizetype indexInList)
+{
+    Q_ASSERT(!name.isEmpty());
+    Q_ASSERT((type != IOType::ATTRIBUTE) ||
+             ((valueType != IOValueType::IMPULSION) && (valueType != IOValueType::UNKNOWN)));
+
+    if (getIO(type, name))
+        return nullptr;
+
+    auto io = new $(global.project_name:Pascal)IO(type, name, valueType);
+    Q_ASSERT(io);
+
+    switch(type)
+    {
+    case IOType::INPUT:
+        _inputsHash.insert(name, io);
+        if ((0 <= indexInList) && (indexInList < _inputs.count()))
+            _inputs.insert(indexInList, io);
+        else
+            _inputs.append(io);
+        break;
+
+    //TODO Other IO types if necessary
+
+    default:
+        qWarning() << "$(global.project_name:Pascal)::createIO unsupported type" << IOType::instance().enumToString(type);
+        delete io;
+        io = nullptr;
+        break;
+    }
+
+    return io;
+}
+
+
+void $(global.project_name:Pascal)::removeIO(IOType::Value ioType, const QString &ioName)
+{
+    if (auto io = getIO(ioType, ioName))
+    {
+        Q_ASSERT(io);
+        switch (io->type())
+        {
+        case IOType::INPUT:
+            _inputs.remove(io);
+            _inputsHash.remove(ioName);
+            io->deleteLater();
+            break;
+
+        //TODO Other IO types if necessary
+
+        default:
+            qWarning() << "$(global.project_name:Pascal)::removeIO unsupported type" << IOType::instance().enumToString(io->type());
+            break;
+        }
+    }
+}
+
+
+void $(global.project_name:Pascal)::loadIOFromJson(IOType::Value ioType, const QJsonObject &jsonIO, qsizetype index)
+{
+    auto validIOJsonValueTypeStrings = IOValueType::instance().allValuesAsString();
+    if (ioType == IOType::ATTRIBUTE)
+    {
+        validIOJsonValueTypeStrings.removeOne(IOValueType::instance().enumToString(IOValueType::IMPULSION));
+        validIOJsonValueTypeStrings.removeOne(IOValueType::instance().enumToString(IOValueType::UNKNOWN));
+    }
+
+    // Json parsing
+    const auto ioName = jsonIO.value(IO::JSON_KEY_NAME).toString("");  // Returns empty string if undefined or wrong type
+    if (!ioName.isEmpty())
+    {
+        // value type parsing
+        auto ioJsonValueTypeString = jsonIO.value(IO::JSON_KEY_TYPE).toString("");  // Returns empty string if undefined or wrong type
+        if (validIOJsonValueTypeStrings.contains(ioJsonValueTypeString))
+        {
+            auto ioValueType = IOValueType::instance().enumFromString(ioJsonValueTypeString);
+            auto io = qobject_cast<$(global.project_name:Pascal)IO*>(createIO(ioType, ioName, ioValueType, index));
+            Q_ASSERT(io);
+        }
+    }
+}
+
+
+void $(global.project_name:Pascal)::updateIOName(const IOType::Value ioType, const QString &oldName, const QString &newName)
+{
+    if (oldName == newName)
+        return;
+
+    if (auto io = qobject_cast<$(global.project_name:Pascal)IO*>(getIO(ioType, oldName)))
+    {
+        io->setname(newName);
+
+        switch(ioType)
+        {
+        case IOType::INPUT:
+            _inputsHash.remove(oldName);
+            _inputsHash.insert(newName, io);
+            break;
+
+        //TODO Other IO types if necessary
+
+        default:
+            break;
+        }
+    }
+    else
+        qWarning() << "IO not found";
+}
+
+
+QJsonObject $(global.project_name:Pascal)::_customExportToJson() const
+{
+    QJsonObject json {};
+    if (!_inputs.isEmpty())
+    {
+        QJsonArray jsonInputs;
+        for (auto input : _inputs)
+        {
+            if (input)
+                jsonInputs.append(input->exportToJsonObject());
+        }
+        json.insert(JSON_KEY_INPUTS, jsonInputs);
+    }
+
+    //TODO Export other parts of the model here (outputs, services, etc.)
+
+    return json;
+}
+
+
+void $(global.project_name:Pascal)::_customInitFromJson(const QJsonObject& json)
+{
+    _clear();
+
+    if (json.contains(JSON_KEY_INPUTS) && json.value(JSON_KEY_INPUTS).isArray())
+    {
+        const auto jsonInputsValues = json.value(JSON_KEY_INPUTS).toArray();
+        for (const auto& jsonInputsValue : jsonInputsValues)
+        {
+            if (jsonInputsValue.isObject())
+                loadIOFromJson(IOType::INPUT, jsonInputsValue.toObject());
+        }
+    }
+
+    //TODO Load other parts of the model here (outputs, services, etc.)
+}
+
+
+void $(global.project_name:Pascal)::_clear()
+{
+    _inputsHash.clear();
+    _inputs.deleteAllItems();
+    //TODO Clear the rest of the model here
+}
+
+.###########################################
+.# ClassIO header file
+.echo "Generating $(global.project_name:lower)io.h"
+.output "$(global.project_name:lower)io.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+
+#ifndef $(global.project_name:UPPER)IO_H
+#define $(global.project_name:UPPER)IO_H
+
+#include "document/system/io.h"
+
+// This class allows to create a custom model for the IO of this class type
+class Q_DECL_EXPORT $(global.project_name:Pascal)IO : public IO
+{
+    Q_OBJECT
+
+public:
+    explicit $(global.project_name:Pascal)IO(IOType::Value type, const QString& name, IOValueType::Value valueType, QObject* parent = nullptr);
+    ~$(global.project_name:Pascal)IO() override;
+};
+
+QML_DECLARE_TYPE($(global.project_name:Pascal)IO)
+
+#endif // $(global.project_name:UPPER)IO_H
+
+.###########################################
+.# Class IO cpp file
+.echo "Generating $(global.project_name:lower)io.cpp"
+.output "$(global.project_name:lower)io.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(global.project_copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(global.project_contributor)
+ *
+ */
+
+ #include "$(global.project_name:lower)io.h"
+
+ $(global.project_name:Pascal)IO::$(global.project_name:Pascal)IO(IOType::Value type, const QString &name, IOValueType::Value valueType, QObject *parent)
+    : IO{type, name, valueType, parent}
+{
+    setsection("in");
+}
+
+$(global.project_name:Pascal)IO::~$(global.project_name:Pascal)IO() = default;
+
+.###########################################
+.# Plugin Json file
+.echo "Generating $(global.project_name:lower)_plugin.json"
+.output "$(global.project_name:lower)_plugin.json"
+{
+  "name": "$(global.project_name:Pascal)",
+  "version": "0.0.0",
+  "description": "TODO",
+  "copyright": "$(global.project_copyright)"
+}
+.###########################################
+.# QRC file
+.echo "Generating $(global.project_name:lower).qrc"
+.output "$(global.project_name:lower).qrc"
+<RCC>
+    <qresource prefix="/">
+        <file>qml/$(global.project_name:Pascal)/$(global.project_name:Pascal)ViewItem.qml</file>
+        <file>qml/$(global.project_name:Pascal)/Blocks/SampleIOBlock.qml</file>
+        <file>qml/$(global.project_name:Pascal)/Overlays/IOActionsOverlay.qml</file>
+        <file>qml/$(global.project_name:Pascal)/Overlays/IOAddDragOverlay.qml</file>
+        <file>resources/$(global.project_name:Pascal)/drag.svg</file>
+    </qresource>
+</RCC>
+
+.###########################################
+.# ClassViewItem QML file
+.echo "Generating qml/$(global.project_name:Pascal)/$(global.project_name:Pascal)ViewItem.qml"
+.output "qml/$(global.project_name:Pascal)/$(global.project_name:Pascal)ViewItem.qml"
+import Circle.Library.Classes
+import IngescapeCircle
+import QtQuick
+
+import "Overlays"
+
+DefaultClassViewItem {
+    id: root
+
+    //----------------------------------
+    //
+    // Behaviors
+    //
+    //----------------------------------
+
+    Connections {
+        target: Classes
+
+        function onUnhandledSectionClicked(section, classSection)
+        {
+            //TODO: use a custom C++ controller instead of JS ?
+            let classObject = Classes.currentClass;
+            if (classObject)
+            {
+                Classes.newItemIncomingInList = true;
+                //TODO Other custom sections need to be handled here
+                if (section === "in")
+                    Classes.createIO(classObject, IOType.INPUT);
+                else
+                    console.warn("Section", section, "is not (yet) supported by $(global.project_name:Pascal)");
+            }
+        }
+    }
+
+
+    //-----------------------------------
+    //
+    // Overlays displayed above blocks
+    //
+    //-----------------------------------
+
+    IOAddDragOverlay {
+        id: ioAddDragOverlay
+    }
+
+    IOActionsOverlay {
+        id: ioHoveredOverlay
+    }
+
+
+    IOActionsOverlay {
+        id: ioFocusedOverlay
+        group: "focus"
+    }
+}
+
+.###########################################
+.# SampleIOBlock QML file
+.echo "Generating qml/$(global.project_name:Pascal)/Blocks/SampleIOBlock.qml"
+.output "qml/$(global.project_name:Pascal)/Blocks/SampleIOBlock.qml"
+import QtQuick
+
+import IngescapeCircle
+import IngescapeCircle.UI
+
+import Circle.Class.$(global.project_name:Pascal)
+
+import Circle.Library.Classes
+import Circle.Library.Classes.ClassView.Blocks
+
+import Circle.UI.Sketch as S
+import Circle.UI.Sketch.impl as I
+
+BaseBlock {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+    implicitHeight: content.y
+                    + content.height
+                    + (root.isLastBlockInSection ? 15 : 0)
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    HoverHandler {
+        id: contentHoverHandler
+    }
+
+    Item {
+        id: overlayAddBlockHoveredZone
+
+        anchors {
+            top: content.top
+            topMargin: -4
+            bottom: content.bottom
+            bottomMargin: -4
+            right: parent.left
+        }
+        width: overlayAddBlockSpace.width + overlayAddBlockSpace.anchors.rightMargin
+
+        HoverHandler {
+            id: draggAddHoverHandler
+        }
+    }
+
+    Item {
+        id: overlayAddBlockSpace
+
+        anchors {
+            top: content.top
+            bottom: content.bottom
+            right: parent.left
+            rightMargin: 4
+        }
+        width: 20
+
+        property Class classObject: root.classObject
+        property IO io: root.block
+
+        OverlayItem.enabled: (root.block !== null)
+        OverlayItem.group: "add_drag_block"
+        OverlayItem.tag: "io"
+        OverlayItem.visible: draggAddHoverHandler.hovered
+                             || contentHoverHandler.hovered
+                             || overlayAddBlockSpace.OverlayItem.itemCustomFlag
+    }
+
+    Text {
+        id: content
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+        }
+        height: 42
+        verticalAlignment: Text.AlignVCenter
+        text: qsTr("PLACEHOLDER");
+
+        //NOTE The overlays allow to show actions buttons and the add/drag handle on the left
+        Item {
+            id: overlayActionsSpace
+
+            anchors {
+                right: parent.right
+                top: parent.top
+                bottom: parent.bottom
+            }
+
+            implicitWidth: hoverActionsSpace.OverlayItem.item
+                            ? hoverActionsSpace.OverlayItem.item.implicitWidth
+                            : (focusActionsSpace.OverlayItem.item ? focusActionsSpace.OverlayItem.item.implicitWidth : 0)
+
+            Item {
+                id: hoverActionsSpace
+
+                anchors.fill: parent
+
+                property Class classObject: root.classObject
+                property $(global.project_name:Pascal)IO io: root.block
+
+                OverlayItem.enabled: (root.block !== null)
+                OverlayItem.group: "hover"
+                OverlayItem.tag: "io"
+                OverlayItem.visible: (contentHoverHandler.hovered || hoverActionsSpace.OverlayItem.itemCustomFlag)
+            }
+
+
+            Item {
+                id: focusActionsSpace
+
+                anchors.fill: parent
+
+                property Class classObject: root.classObject
+                property $(global.project_name:Pascal)IO io: root.block
+
+                OverlayItem.enabled: (root.block !== null)
+                OverlayItem.group: "focus"
+                OverlayItem.tag: "io"
+                OverlayItem.hideGracePeriod: 25  //NB: we only need a short delay to ensure that active focus is given to another widget
+
+                OverlayItem.visible: !hoverActionsSpace.OverlayItem.item
+                                     && !contentHoverHandler.hovered
+                                     && focusActionsSpace.OverlayItem.itemCustomFlag
+            }
+        }
+    }
+}
+
+.###########################################
+.# IOActionsOverlay QML file
+.echo "Generating qml/$(global.project_name:Pascal)/Overlays/IOActionsOverlay.qml"
+.output "qml/$(global.project_name:Pascal)/Overlays/IOActionsOverlay.qml"
+
+import QtQuick
+import QtQuick.Controls
+
+import IngescapeCircle
+import IngescapeCircle.UI
+
+import Circle.Class.$(global.project_name:Pascal)
+
+import Circle.Library.Classes
+
+import Circle.UI.Sketch as S
+
+
+OverlayItem {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+    group: "hover"
+    tag: "io"
+
+    implicitWidth: actions.implicitWidth
+
+    reparent: true
+
+    customFlag: action1Button.visualFocus
+                || menuButton.visualFocus || menuButton.checked
+                || deleteButton.visualFocus
+
+
+    QtObject {
+        id: rootPrivate
+
+        property Class classObject: root.target?.classObject ?? null
+        property $(global.project_name:Pascal)IO io: root.target?.io ?? null
+
+    }
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    Row {
+        id: actions
+
+        anchors {
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+        }
+        height: 24
+
+        spacing: 8
+
+        S.ButtonTextIcon {
+            id: action1Button
+
+            text: qsTr("Action 1")
+
+            onClicked: {
+                console.log("Action 1 does nothing yet")
+            }
+        }
+
+        Row {
+            id: iconsButtons
+
+            S.MenuButtonRight {
+                id: menuButton
+
+                menu.contentData: [
+                    Action {
+                        text: qsTr("Menu item 1")
+
+                        onTriggered: {
+                            console.log("Menu item 1 does nothing yet");
+                        }
+                    }
+                ]
+            }
+
+            S.ButtonIcon {
+                id: deleteButton
+
+                text: IgscircleFont.iconDelete
+
+                onClicked: {
+                    if (rootPrivate.classObject && rootPrivate.io)
+                        Classes.deleteIO(rootPrivate.classObject, rootPrivate.io);
+                }
+            }
+        }
+    }
+}
+
+.###########################################
+.# IOAddDragOverlay QML file
+.echo "Generating qml/$(global.project_name:Pascal)/Overlays/IOAddDragOverlay.qml"
+.output "qml/$(global.project_name:Pascal)/Overlays/IOAddDragOverlay.qml"
+
+import QtQuick
+
+import IngescapeCircle
+import IngescapeCircle.UI
+
+import Circle.UI.Sketch as S
+
+import Circle.Library.Classes
+
+OverlayItem {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+    group: "add_drag_block"
+
+    implicitWidth: 20
+
+    reparent: true
+
+    customFlag: createBefore.hovered || createAfter.hovered
+
+
+    property alias dragImageSource: dragImage.source
+    property alias dragImageSourceSize: dragImage.sourceSize
+
+    tag: "io"
+
+    dragImageSource: "qrc:/resources/$(global.project_name:Pascal)/drag.svg"
+    dragImageSourceSize: Qt.size(6, 16)
+
+
+    QtObject {
+        id: rootPrivate
+
+        property Class classObject: root.target?.classObject ?? null
+        property IO io: root.target?.io ?? null
+        property int ioType : io?.type ?? IOType.INPUT
+    }
+
+
+    //----------------------------------
+    //
+    // Behaviors
+    //
+    //----------------------------------
+
+    onAddItem: (after) => {
+                   if (rootPrivate.classObject && rootPrivate.io)
+                   {
+                        Classes.newItemIncomingInList = true;
+                        let index = Classes.getIOIndex(rootPrivate.classObject, rootPrivate.io);
+                        if (after)
+                            ++index;
+                        Classes.createIO(rootPrivate.classObject, rootPrivate.ioType, index);
+                   }
+               }
+
+
+    //----------------------------------
+    //
+    // Signals
+    //
+    //----------------------------------
+
+    signal addItem(bool after);
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    Rectangle {
+        id: background
+        anchors {
+            top: parent.top
+            topMargin: 3
+            bottom: parent.bottom
+            bottomMargin: 3
+            horizontalCenter: parent.horizontalCenter
+        }
+        width: 16
+
+        radius: 3
+
+        color: S.CircleUISketchTheme.igsGreyGrey3InspectorHover
+        opacity: 0.25
+    }
+
+    Image {
+        id: dragImage
+        anchors.centerIn: background
+    }
+
+    S.ButtonCreateLine {
+        id: createBefore
+        anchors {
+            bottom: parent.top
+            bottomMargin: -width/2
+            horizontalCenter: parent.horizontalCenter
+        }
+
+        onClicked: {
+            root.addItem(false);
+        }
+    }
+
+    S.ButtonCreateLine {
+        id: createAfter
+        anchors {
+            top: parent.bottom
+            topMargin: -width/2
+            horizontalCenter: parent.horizontalCenter
+        }
+
+        onClicked: {
+            root.addItem(true);
+        }
+    }
+}
+
+.###########################################
+.# drag.svg file
+.echo "Generating resources/$(global.project_name:Pascal)/drag.svg"
+.output "resources/$(global.project_name:Pascal)/drag.svg"
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="6.856px" height="16px" viewBox="0 0 6.856 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>icon-v4/drag</title>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Inspector/Drag-handle/hovered" transform="translate(-6,572, -16)" fill="#4E5156">
+            <g id="icon-v4/drag" transform="translate(6,572, 16)">
+                <path d="M0,1.14285714 C0,1.77485714 0.510857143,2.28571429 1.14171429,2.28571429 L1.14171429,2.28571429 C1.77371429,2.28571429 2.28457143,1.77485714 2.28457143,1.14285714 L2.28457143,1.14285714 C2.28457143,0.512 1.77371429,1.77635684e-15 1.14171429,1.77635684e-15 L1.14171429,1.77635684e-15 C0.510857143,1.77635684e-15 0,0.512 0,1.14285714 L0,1.14285714 Z" id="Clip-31"></path>
+                <path d="M4.57028571,1.14285714 C4.57028571,1.77485714 5.08114286,2.28571429 5.71314286,2.28571429 L5.71314286,2.28571429 C6.34514286,2.28571429 6.856,1.77485714 6.856,1.14285714 L6.856,1.14285714 C6.856,0.512 6.34514286,1.77635684e-15 5.71314286,1.77635684e-15 L5.71314286,1.77635684e-15 C5.08114286,1.77635684e-15 4.57028571,0.512 4.57028571,1.14285714 L4.57028571,1.14285714 Z" id="Clip-34"></path>
+                <path d="M0,5.71428571 C0,6.34628571 0.510857143,6.85714286 1.14171429,6.85714286 L1.14171429,6.85714286 C1.77371429,6.85714286 2.28457143,6.34628571 2.28457143,5.71428571 L2.28457143,5.71428571 C2.28457143,5.08342857 1.77371429,4.57142857 1.14171429,4.57142857 L1.14171429,4.57142857 C0.510857143,4.57142857 0,5.08342857 0,5.71428571 L0,5.71428571 Z" id="Clip-40"></path>
+                <path d="M4.57028571,5.71428571 C4.57028571,6.34628571 5.08114286,6.85714286 5.71314286,6.85714286 L5.71314286,6.85714286 C6.34514286,6.85714286 6.856,6.34628571 6.856,5.71428571 L6.856,5.71428571 C6.856,5.08342857 6.34514286,4.57142857 5.71314286,4.57142857 L5.71314286,4.57142857 C5.08114286,4.57142857 4.57028571,5.08342857 4.57028571,5.71428571 L4.57028571,5.71428571 Z" id="Clip-43"></path>
+                <path d="M0,10.2857143 C0,10.9177143 0.510857143,11.4285714 1.14171429,11.4285714 L1.14171429,11.4285714 C1.77371429,11.4285714 2.28457143,10.9177143 2.28457143,10.2857143 L2.28457143,10.2857143 C2.28457143,9.65485714 1.77371429,9.14285714 1.14171429,9.14285714 L1.14171429,9.14285714 C0.510857143,9.14285714 0,9.65485714 0,10.2857143 L0,10.2857143 Z" id="Clip-49"></path>
+                <path d="M4.57028571,10.2857143 C4.57028571,10.9177143 5.08114286,11.4285714 5.71314286,11.4285714 L5.71314286,11.4285714 C6.34514286,11.4285714 6.856,10.9177143 6.856,10.2857143 L6.856,10.2857143 C6.856,9.65485714 6.34514286,9.14285714 5.71314286,9.14285714 L5.71314286,9.14285714 C5.08114286,9.14285714 4.57028571,9.65485714 4.57028571,10.2857143 L4.57028571,10.2857143 Z" id="Clip-52"></path>
+                <path d="M0,14.8571429 C0,15.488 0.510857143,16 1.14171429,16 L1.14171429,16 C1.77371429,16 2.28457143,15.488 2.28457143,14.8571429 L2.28457143,14.8571429 C2.28457143,14.2262857 1.77371429,13.7142857 1.14171429,13.7142857 L1.14171429,13.7142857 C0.510857143,13.7142857 0,14.2262857 0,14.8571429 L0,14.8571429 Z" id="Clip-58"></path>
+                <path d="M4.57028571,14.8571429 C4.57028571,15.488 5.08114286,16 5.71314286,16 L5.71314286,16 C6.34514286,16 6.856,15.488 6.856,14.8571429 L6.856,14.8571429 C6.856,14.2262857 6.34514286,13.7142857 5.71314286,13.7142857 L5.71314286,13.7142857 C5.08114286,13.7142857 4.57028571,14.2262857 4.57028571,14.8571429 L4.57028571,14.8571429 Z" id="Clip-61"></path>
+            </g>
+        </g>
+    </g>
+</svg>
+
+.endtemplate

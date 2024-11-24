@@ -1,0 +1,61 @@
+Carte;05/11/2024;10:34:08.000531;DEBUG;igs_set_command_line;Command line set to C:\Python312\python.exe .\main.py
+Carte;05/11/2024;10:34:08.000533;DEBUG;main;Ingescape version: 40205 (protocol v5)
+Carte;05/11/2024;10:34:08.000550;ERROR;main;No network device passed as command line parameter and several are available.
+Carte;05/11/2024;10:35:52.000390;DEBUG;igs_set_command_line;Command line set to C:\Python312\python.exe .\main.py --device Wi-Fi --port 2007
+Carte;05/11/2024;10:35:52.000390;DEBUG;main;Ingescape version: 40205 (protocol v5)
+Carte;05/11/2024;10:38:04.000645;DEBUG;igs_set_command_line;Command line set to C:\Python312\python.exe .\main.py --device Wi-Fi --port 2007
+Carte;05/11/2024;10:38:04.000645;DEBUG;main;Ingescape version: 40205 (protocol v5)
+Carte;05/11/2024;10:38:44.000843;DEBUG;igs_set_command_line;Command line set to C:\Python312\python.exe .\main.py --device Wi-Fi --port 2007
+Carte;05/11/2024;10:38:44.000843;DEBUG;main;Ingescape version: 40205 (protocol v5)
+Carte;05/11/2024;10:38:44.000845;DEBUG;model_write;set attribute Valeur to int 0
+Carte;05/11/2024;10:38:44.000845;DEBUG;model_write;set attribute Nom to string 
+Carte;05/11/2024;10:38:44.000845;DEBUG;model_write;set attribute Pouvoir to string 
+Carte;05/11/2024;10:38:44.000846;DEBUG;model_write;set attribute Jouée to bool 0
+Carte;05/11/2024;10:38:44.000846;DEBUG;model_write;set attribute Sortie to bool 0
+Carte;05/11/2024;10:38:44.000855;INFO;igs_start_with_device;Starting with ip address 172.17.44.23 and port 2007 on device Wi-Fi
+Carte;05/11/2024;10:38:44.000856;DEBUG;s_init_loop;loop init
+Carte;05/11/2024;10:38:44.000969;DEBUG;s_run_loop;loop starting
+Carte;05/11/2024;10:38:45.000032;DEBUG;s_manage_zyre_incoming;->Whiteboard has entered the network with peer id 1230358E0FEBB546A3B941E5BE905365 and endpoint tcp://172.17.44.23:49157
+Carte;05/11/2024;10:38:45.000032;DEBUG;s_manage_zyre_incoming;Handling headers for peer Whiteboard (1230358E0FEBB546A3B941E5BE905365)
+Carte;05/11/2024;10:38:45.000032;DEBUG;s_manage_zyre_incoming;	inproc -> inproc://1230358E0FEBB546A3B941E5BE905365
+Carte;05/11/2024;10:38:45.000032;DEBUG;s_manage_zyre_incoming;	pid -> 24460
+Carte;05/11/2024;10:38:45.000032;DEBUG;s_manage_zyre_incoming;	commandline -> C:\Users\yssr0\Desktop\Whiteboard\Whiteboard.exe
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	protocol -> v5
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	loopback -> tcp://127.0.0.1:49153
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	logger -> 49156
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	ingescape -> v4.2.3
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	publisher -> 49155
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;	hostname -> DESKTOP-K3TF5FO
+Carte;05/11/2024;10:38:45.000033;DEBUG;s_manage_zyre_incoming;Use address tcp://127.0.0.1:49153 to subscribe to Whiteboard
+Carte;05/11/2024;10:38:45.000034;DEBUG;s_manage_zyre_incoming;Subscription created for Whiteboard at tcp://127.0.0.1:49153 (ipc)
+Carte;05/11/2024;10:38:45.000035;DEBUG;s_manage_zyre_incoming;+Whiteboard has joined INGESCAPE_PRIVATE
+Carte;05/11/2024;10:38:45.000035;DEBUG;s_manage_zyre_incoming;+Whiteboard has joined Whiteboard-IGS-REPLAY
+Carte;05/11/2024;10:38:45.000035;DEBUG;s_manage_zyre_incoming;+Whiteboard has joined Whiteboard-IGS
+Carte;05/11/2024;10:38:45.000036;DEBUG;s_manage_zyre_incoming;->Ingescape_Circle has entered the network with peer id 08BB380E2362584AA38F21A8EEEBBE26 and endpoint tcp://172.17.44.23:49154
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;Handling headers for peer Ingescape_Circle (08BB380E2362584AA38F21A8EEEBBE26)
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	inproc -> inproc://08BB380E2362584AA38F21A8EEEBBE26
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	pid -> 876
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	commandline -> "C:\Program Files\Ingescape\Ingescape Circle v4\Ingescape-Circle.exe"
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	protocol -> v5
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	isCircle -> 1
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	loopback -> tcp://127.0.0.1:49152
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	logger -> 49153
+Carte;05/11/2024;10:38:45.000037;DEBUG;s_manage_zyre_incoming;	ingescape -> v4.2.5
+Carte;05/11/2024;10:38:45.000038;DEBUG;s_manage_zyre_incoming;	publisher -> 49152
+Carte;05/11/2024;10:38:45.000038;DEBUG;s_manage_zyre_incoming;	hostname -> DESKTOP-K3TF5FO
+Carte;05/11/2024;10:38:45.000038;DEBUG;s_manage_zyre_incoming;Use address tcp://127.0.0.1:49152 to subscribe to Ingescape_Circle
+Carte;05/11/2024;10:38:45.000039;DEBUG;s_manage_zyre_incoming;Subscription created for Ingescape_Circle at tcp://127.0.0.1:49152 (ipc)
+Carte;05/11/2024;10:38:45.000040;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined INGESCAPE_PRIVATE
+Carte;05/11/2024;10:38:45.000040;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined \o/ Ingescape-Circles
+Carte;05/11/2024;10:38:45.000040;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Ingescape_Circle-IGS-REPLAY
+Carte;05/11/2024;10:38:45.000040;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Ingescape_Circle-IGS
+Carte;05/11/2024;10:38:45.000041;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Whiteboard-IGS-CALLS
+Carte;05/11/2024;10:38:45.000041;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Whiteboard-IGS
+Carte;05/11/2024;10:38:45.000041;DEBUG;s_manage_zyre_incoming;registering agent 76122B8450DDB74CBE8E66F942C5B723(Whiteboard)
+Carte;05/11/2024;10:38:45.000041;DEBUG;s_manage_zyre_incoming;store definition for remote agent Whiteboard(76122B8450DDB74CBE8E66F942C5B723)
+Carte;05/11/2024;10:38:45.000042;DEBUG;s_manage_zyre_incoming;store mapping for agent Whiteboard(76122B8450DDB74CBE8E66F942C5B723)
+Carte;05/11/2024;10:38:45.000044;DEBUG;s_manage_zyre_incoming;registering agent FAB9ED9B63ACA942A1BECDF40C77872B(Ingescape_Circle)
+Carte;05/11/2024;10:38:45.000044;DEBUG;s_manage_zyre_incoming;store definition for remote agent Ingescape_Circle(FAB9ED9B63ACA942A1BECDF40C77872B)
+Carte;05/11/2024;10:38:45.000045;DEBUG;s_manage_zyre_incoming;store mapping for agent Ingescape_Circle(FAB9ED9B63ACA942A1BECDF40C77872B)
+Carte;05/11/2024;10:38:45.000054;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Carte-IGS-CALLS
+Carte;05/11/2024;10:38:45.000054;DEBUG;s_manage_zyre_incoming;+Ingescape_Circle has joined Carte-IGS

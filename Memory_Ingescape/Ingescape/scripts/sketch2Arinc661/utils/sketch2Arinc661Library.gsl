@@ -1,0 +1,50 @@
+.ignorecase = 0
+.template 0
+
+#init global variables
+global.sketch2arinc661_isInProject = defined(global.project_hasSubProject) & global.project_hasSubProject
+global.sketch2arinc661_destinationRootDir = global.project_graphicFolder ? "."
+global.sketch2arinc661_appOrLibraryName = "$(library.name: pascal)"
+global.sketch2arinc661_appOrLibraryDir = "$(global.sketch2arinc661_destinationRootDir)/$(global.sketch2arinc661_appOrLibraryName)_ARINC661"
+global.sketch2arinc661_componentsDir = "$(global.sketch2arinc661_appOrLibraryDir)/xml files"
+global.sketch2arinc661_libraryName = "$(library.name: pascal)"
+global.sketch2arinc661_isApp = 0
+global.sketch2arinc661_tabWidth = 4
+
+
+if defined(global.project_scriptFolder)
+    global.sketch2arinc661_scriptsDir = global.project_scriptFolder
+elsif regexp.match("^(.*)/[^/]+$", "$(script)", currentScriptRootDir)
+    global.sketch2arinc661_scriptsDir = currentScriptRootDir
+else
+    global.sketch2arinc661_scriptsDir = "../gsl_scripts/utils"
+endif
+
+echo "Scripts dir is $(global.sketch2arinc661_scriptsDir)"
+
+#load additional scripts
+gsl from "$(global.sketch2arinc661_scriptsDir)/sketch2Arinc661Common.gsl"
+
+#init directories
+echo "Initiating $(global.sketch2arinc661_appOrLibraryName) library project directory structure"
+initDirectories()
+copyResourcesFiles()
+
+
+.endtemplate
+.template 1
+.##########################################################
+.# Resources
+.#
+.echo "Generating resources"
+.renderResources(library)
+.##########################################################
+.# Components (i.e symbol masters)
+.#
+.for library.component
+.   global.sketch2arinc661_componentName = getComponentName("$(component.type: Pascal)")
+.   echo "Generating component $(global.sketch2arinc661_componentName).xml"
+.   output "$(global.sketch2arinc661_componentsDir)/$(global.sketch2arinc661_componentName).xml"
+.   renderComponent(library, component, 1)
+.endfor
+.endtemplate

@@ -1,0 +1,500 @@
+.# > name="0- Ingescape Circle Tool"
+.# > keyword="C++"
+.# > description="To add a new tool to Ingescape Circle."
+.# > agentMode="ONE"
+.# > onlyAgentDefinitionSupport="true"
+.ignorecase = 0
+.template 0
+
+
+function typeToIOValueType(type)
+    return "IOValueType::$(type)"
+endfunction
+
+
+
+
+#
+# Init 
+#
+echo "Creating directories structure ..."
+directory.create("qml")
+directory.create("qml/$(definition.name:Pascal)")
+
+
+.endtemplate
+.template 1
+.############################################
+.# CMake file
+.echo "Generating CMakeLists.txt"
+.output "CMakeLists.txt"
+set($(definition.name)Target "$(definition.name:Pascal)")
+
+add_library(${$(definition.name)Target} SHARED
+    ${CMAKE_CURRENT_LIST_DIR}/$(definition.name:lower)_plugin.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(definition.name:lower)controller.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/$(definition.name:lower).qrc
+    )
+
+setup_plugin_target(${$(definition.name)Target})
+.###########################################
+.# QMake file
+.echo "Generating $(definition.name).pro"
+.output "$(definition.name).pro"
+TEMPLATE = lib
+TARGET = $(definition.name:Pascal)
+
+QT += qml quick
+
+CONFIG += plugin c++17
+
+SOURCES += \\
+        $(definition.name:lower)_plugin.cpp \\
+        $(definition.name:lower)controller.cpp 
+
+
+HEADERS += \\
+        $(definition.name:lower)_plugin.h \\
+        $(definition.name:lower)controller.h
+
+
+OTHER_FILES += \\
+        $(definition.name:lower)_plugin.json
+
+
+RESOURCES += \\
+    $(definition.name:lower).qrc \\
+    CMakeLists.txt
+
+
+QML_IMPORT_PATH += $$PWD/qml
+
+
+!include(../pluginsCommonRules.pri) {
+    error(Could not load pluginsCommonRules.pri)
+}
+.###########################################
+.# Plugin header file
+.echo "Generating $(definition.name:lower)_plugin.h"
+.output "$(definition.name:lower)_plugin.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(definition.copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(definition.author)
+ *
+ */
+
+
+#ifndef $(definition.name:UPPER)_PLUGIN_H
+#define $(definition.name:UPPER)_PLUGIN_H
+
+#include <QObject>
+
+#include "plugins/circleagentplugin.h"
+
+
+class $(definition.name:Pascal)Plugin : public CircleAgentPlugin
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID IID_CircleAgentPluginInterface FILE "$(definition.name:lower)_plugin.json")
+
+public:
+    explicit $(definition.name:Pascal)Plugin(QObject* parent = nullptr);
+
+    AgentType::Value type() const override;
+    QString family() const override;
+
+    CircleAgentController* createAgentController(Platform* platform, Agent* agent) override;
+
+protected:
+    void _registerQmlTypes();
+};
+
+#endif // $(definition.name:UPPER)_PLUGIN_H
+.###########################################
+.# Plugin source file
+.echo "Generating $(definition.name:lower)_plugin.cpp"
+.output "$(definition.name:lower)_plugin.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(definition.copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(definition.author)
+ *
+ */
+
+#include "$(definition.name:lower)_plugin.h"
+
+#include <QDebug>
+
+#ifdef QT_DEBUG
+#include "base/I2QmlHotReloader.h"
+#endif
+
+#include "$(definition.name:lower)controller.h"
+
+
+$(definition.name:Pascal)Plugin::$(definition.name:Pascal)Plugin(QObject* parent)
+    : CircleAgentPlugin(parent)
+{
+    // Configure our plugin
+    setisLicenseDependent(false);
+    sethasDemoMode(false);
+    setisLicenseDependentOnAgentFamily(false);
+
+    // Configure our toolbar
+    setisInToolbar(true);
+    settoolbarIcon(QUrl("image://circlefont/iconUnknown"));
+    settoolbarLabel(tr("$(definition.name:Pascal)"));
+    settoolbarGroup(1234);
+    setdisableIconWhenLicenseInvalid(false);
+
+    // Configure the node view
+    setqmlNodeUrl(QUrl("qrc:/qml/$(definition.name:Pascal)/$(definition.name:Pascal)Node.qml"));
+
+    // Configure the inspector view
+    setneedsAnInspector(false); // Set to true to true if you need a custom inspector
+    //setqmlInspectorUrl(QUrl("qrc:/qml/$(definition.name:Pascal)/$(definition.name:Pascal)Inspector.qml"));
+    //setusesGenericInspectorMenu(false);
+
+.if (count (definition.input) | count (definition.output))
+    // Definition of our tool
+.   if count (definition.input)
+    // - inputs
+.       for definition.input
+     _definition.createIOP(IOType::INPUT, "$(input.name)", $(typeToIOValueType(input.type)));
+.       endfor
+.   endif
+.   if count (definition.output)
+    // - outputs
+.       for definition.output
+     _definition.createIOP(IOType::OUTPUT, "$(output.name)", $(typeToIOValueType(output.type)));
+.       endfor
+.   endif
+.endif
+
+    // Register extra QML types
+    _registerQmlTypes();
+}
+
+
+AgentType::Value $(definition.name:Pascal)Plugin::type() const
+{
+    return AgentType::TOOL;
+}
+
+
+QString $(definition.name:Pascal)Plugin::family() const
+{
+    return "com.ingescape.circle.tool.$(definition.name:lower)";
+}
+
+
+CircleAgentController* $(definition.name:Pascal)Plugin::createAgentController(Platform* platform, Agent* agent)
+{
+    return new $(definition.name:Pascal)Controller(platform, agent);
+}
+
+
+void $(definition.name:Pascal)Plugin::_registerQmlTypes()
+{
+    //TODO: register your C++ classes and QML components
+    qmlRegisterUncreatableType<$(definition.name:Pascal)Controller>("$(definition.name:Pascal)", 1, 0, "$(definition.name:Pascal)Controller", "Internal class");
+
+#ifdef QT_DEBUG
+    auto pluginDir = QFileInfo(QFINDTESTDATA(__FILE__)).absoluteDir();
+
+    I2QmlHotReloader::instance().addRootDirPath(pluginDir.absolutePath());
+    I2QmlHotReloader::instance().watchDirPath(pluginDir.filePath("qml"));
+#endif
+}
+.###########################################
+.# Controller header file
+.echo "Generating $(definition.name:lower)controller.h"
+.output "$(definition.name:lower)controller.h"
+/*
+ *	Ingescape Circle
+ *
+ *  $(definition.copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *     $(definition.author)
+ *
+ */
+
+
+#ifndef $(definition.name:UPPER)CONTROLLER_H
+#define $(definition.name:UPPER)CONTROLLER_H
+
+#include <QObject>
+#include <QQmlEngine>
+#include <QtGlobal>
+
+#include "plugins/circleagentcontroller.h"
+
+
+class $(definition.name:Pascal)Controller : public CircleAgentController
+{
+    Q_OBJECT
+
+public:
+    explicit $(definition.name:Pascal)Controller(Platform* platform, Agent* agent, QObject* parent = nullptr);
+    virtual ~$(definition.name:Pascal)Controller() override;
+
+    void updateFromData(const QJsonObject& data) override;
+};
+
+QML_DECLARE_TYPE($(definition.name:Pascal)Controller)
+
+#endif // $(definition.name:UPPER)CONTROLLER_H
+.###########################################
+.# Controller source file
+.echo "Generating $(definition.name:lower)controller.cpp"
+.output "$(definition.name:lower)controller.cpp"
+/*
+ *	Ingescape Circle
+ *
+ *  $(definition.copyright)
+ *
+ *	See license terms for the rights and conditions
+ *	defined by copyright holders.
+ *
+ *
+ *	Contributors:
+ *      $(definition.author)
+ *
+ */
+
+#include "$(definition.name:lower)controller.h"
+
+#include <QDebug>
+
+#include "platform/platform.h"
+
+
+$(definition.name:Pascal)Controller::$(definition.name:Pascal)Controller(Platform* platform, Agent* agent, QObject* parent)
+    : CircleAgentController(platform, agent, parent)
+{
+    if (agent)
+    {
+.if count (definition.input)
+.   for definition.input
+        if (auto input$(input.name:Pascal) = agent->definition()->getInput("$(input.name)"))
+        {
+            connect(input$(input.name:Pascal), &IOP::written, this, [=]() {
+                qDebug() << "Input $(input.name) changed, value=" << input$(input.name:Pascal)->currentValue();
+            });
+        }
+
+.   endfor
+.endif
+        //TODO
+
+        updateFromData(agent->data());
+    }
+}
+
+
+$(definition.name:Pascal)Controller::~$(definition.name:Pascal)Controller() = default;
+
+
+void $(definition.name:Pascal)Controller::updateFromData(const QJsonObject& data)
+{
+    Q_UNUSED(data)
+    //TODO
+}
+
+
+.###########################################
+.# Plugin Json file
+.echo "Generating $(definition.name:lower)_plugin.json"
+.output "$(definition.name:lower)_plugin.json"
+{
+  "name": "$(definition.name:Pascal)",
+  "version": "0.0.0",
+  "description": "TODO",
+  "copyright": "$(definition.copyright)"
+}
+.###########################################
+.# QRC file
+.echo "Generating $(definition.name:lower).qrc"
+.output "$(definition.name:lower).qrc"
+<RCC>
+    <qresource prefix="/">
+        <file>qml/$(definition.name:Pascal)/$(definition.name:Pascal)Node.qml</file>
+        <file>qml/$(definition.name:Pascal)/$(definition.name:Pascal)Inspector.qml</file>
+    </qresource>
+</RCC>
+.###########################################
+.# Platform view QML file
+.echo "Generating qml/$(definition.name:Pascal)/$(definition.name:Pascal)Node.qml"
+.output "qml/$(definition.name:Pascal)/$(definition.name:Pascal)Node.qml"
+import QtQuick
+
+import IngescapeCircle
+import IngescapeCircle.UI
+import IngescapeCircle.NodeGraph
+
+import I2Quick
+
+import $(definition.name:Pascal)
+
+
+ToolNode {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+    title: qsTr("$(definition.name:Pascal)")
+
+    implicitWidth: 200
+    implicitContentHeight: content.implicitHeight
+
+    allowsHorizontalResizing: true
+    allowsVerticalResizing: false
+
+
+    QtObject {
+        id: rootPrivate
+
+        property $(definition.name:Pascal)Controller controller: root.agent?.controller ?? null
+
+        property int numberOfInputs: root.agent?.definition?.inputs?.count ?? 0
+        property int numberOfOutputs: root.agent?.definition?.outputs?.count ?? 0
+    
+.if count (definition.input)
+        // Inputs
+.   for definition.input
+        property IOP input_$(input.name): root.agent?.definition?.getInput("$(input.name)") ?? null
+.   endfor
+.endif
+
+.if count (definition.output)
+        // Outputs
+.   for definition.output
+        property IOP output_$(output.name): root.agent?.definition?.getOutput("$(output.name)") ?? null 
+.   endfor
+.endif
+    }
+
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    Item {
+        id: content
+
+        anchors {
+            left: parent.left
+            right: parent.right
+        }
+
+        implicitHeight: Math.max(30, Math.max(columnInputs.height, columnOutputs.height) + columnInputs.anchors.topMargin * 2 )
+
+        IOAgentList {
+            id: columnInputs
+
+            anchors {
+                top: parent.top
+                topMargin: 10
+                left: parent.left
+                leftMargin: 2
+                right: parent.right
+                rightMargin: 2
+            }
+
+            model: (root.agent?.definition?.inputs ?? null)
+            secondModelCount: rootPrivate.numberOfOutputs
+            position: Qt.LeftEdge
+            agent: root.agent
+            zoom: root.zoom
+            isOn: false
+            useOffStateVisual: false
+            canAnimateExpandCollapse: false
+        }
+
+        IOAgentList {
+            id: columnOutputs
+
+            anchors {
+                top: parent.top
+                topMargin: 10
+                left: parent.left
+                leftMargin: 2
+                right: parent.right
+                rightMargin: 2
+            }
+
+            model: (root.agent?.definition?.outputs ?? null)
+            secondModelCount:  rootPrivate.numberOfInputs
+            position: Qt.RightEdge
+            agent: root.agent
+            zoom: root.zoom
+            isOn: false
+            useOffStateVisual: false
+            canAnimateExpandCollapse: false
+        }
+    }
+}
+.###########################################
+.# Inspector  QML file
+.echo "Generating qml/$(definition.name:Pascal)/$(definition.name:Pascal)Inspector.qml"
+.output "qml/$(definition.name:Pascal)/$(definition.name:Pascal)Inspector.qml"
+import QtQuick
+import IngescapeCircle
+import IngescapeCircle.UI
+
+import I2Quick
+
+import $(definition.name:Pascal)
+
+
+AgentInspector {
+    id: root
+
+    //----------------------------------
+    //
+    // Properties
+    //
+    //----------------------------------
+
+
+    //----------------------------------
+    //
+    // Content
+    //
+    //----------------------------------
+
+    Text {
+        anchors.centerIn: parent
+
+        text: qsTr("$(definition.name:Pascal)")
+    }
+
+}
+.endtemplate
